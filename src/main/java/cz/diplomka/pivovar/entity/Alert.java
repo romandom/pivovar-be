@@ -42,6 +42,5 @@ public class Alert {
     @Column
     private LocalDateTime resolvedAt;
 
-    // Getters, setters, constructors...
 }
 

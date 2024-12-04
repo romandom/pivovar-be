@@ -22,7 +22,7 @@ public class RecipeStep {
     private Long id;
 
     @Column(nullable = false)
-    private String name;
+    private int stepNumber;
 
     @Column(nullable = false)
     private double targetTemperature;
@@ -35,11 +35,10 @@ public class RecipeStep {
     private Recipe recipe;
 
     @Enumerated(EnumType.STRING)
-    private BrewingVessel vessel; // Enum: MAIN_KETTLE, DECOCTION_KETTLE
+    private BrewingVessel vessel;
 
     @Column(nullable = false)
     private boolean isTransferStep;
 
-    // Getters, setters, constructors...
 }
 

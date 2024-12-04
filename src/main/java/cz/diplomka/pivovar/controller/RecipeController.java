@@ -4,11 +4,7 @@ import cz.diplomka.pivovar.entity.Recipe;
 import cz.diplomka.pivovar.service.RecipeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -22,6 +18,12 @@ public class RecipeController {
     @PostMapping("create")
     public ResponseEntity<Recipe> createRecipe(@RequestBody Recipe recipe) {
         return ResponseEntity.ok(recipeService.createRecipe(recipe));
+    }
+
+    @DeleteMapping("delete/{id}")
+    public ResponseEntity<Void> deleteRecipe(@PathVariable int id) {
+        recipeService.deleteRecipeById(id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("names")

@@ -42,6 +42,5 @@ public class BrewSession {
     @OneToMany(mappedBy = "brewSession", cascade = CascadeType.ALL)
     private List<BrewLog> logs;
 
-    // Getters, setters, constructors...
 }
 

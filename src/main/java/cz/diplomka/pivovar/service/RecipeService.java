@@ -2,6 +2,7 @@ package cz.diplomka.pivovar.service;
 
 import cz.diplomka.pivovar.entity.Recipe;
 import cz.diplomka.pivovar.repository.RecipeRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -22,7 +23,11 @@ public class RecipeService {
         return recipes.stream().collect(Collectors.toMap(Recipe::getId, Recipe::getName));
     }
 
+    @Transactional
     public Recipe createRecipe(Recipe recipeToSave) {
         return recipeRepository.save(recipeToSave);
     }
+
+    @Transactional
+    public void deleteRecipeById(int id) { recipeRepository.deleteById(id); }
 }
