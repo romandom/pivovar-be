@@ -5,11 +5,9 @@ import cz.diplomka.pivovar.repository.BrewLogRepository;
 import cz.diplomka.pivovar.repository.BrewSessionRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.springframework.stereotype.Service;
 
-@Slf4j
 @RequiredArgsConstructor
 @Service
 public class BrewLogService {
