@@ -8,8 +8,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Data;
 
@@ -28,11 +26,7 @@ public class RecipeStep {
     private double targetTemperature;
 
     @Column(nullable = false)
-    private int duration; // Duration in seconds
-
-    @ManyToOne
-    @JoinColumn(name = "recipe_id", nullable = false)
-    private Recipe recipe;
+    private int duration;
 
     @Enumerated(EnumType.STRING)
     private BrewingVessel vessel;

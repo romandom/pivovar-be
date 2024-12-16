@@ -25,7 +25,7 @@ public class BrewLog {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "brew_session_id", nullable = false)
+    @JoinColumn(name = "brew_session_id")
     private BrewSession brewSession;
 
     @Enumerated(EnumType.STRING)

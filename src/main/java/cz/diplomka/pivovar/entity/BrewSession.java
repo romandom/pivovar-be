@@ -33,13 +33,13 @@ public class BrewSession {
     private LocalDateTime endTime;
 
     @Enumerated(EnumType.STRING)
-    private BrewSessionStatus status; // Enum: STARTED, IN_PROGRESS, COMPLETED, CANCELLED
+    private BrewSessionStatus status;
 
     @ManyToOne
-    @JoinColumn(name = "recipe_id", nullable = false)
+    @JoinColumn(name = "recipe_id")
     private Recipe recipe;
 
-    @OneToMany(mappedBy = "brewSession", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "brewSession", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BrewLog> logs;
 
 }
