@@ -42,5 +42,8 @@ public class BrewSession {
     @OneToMany(mappedBy = "brewSession", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BrewLog> logs;
 
+    @Column
+    private Integer currentStep;
+
 }
 
