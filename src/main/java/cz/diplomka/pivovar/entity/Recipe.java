@@ -20,7 +20,8 @@ public class Recipe {
     @JoinColumn(name = "recipe_id")
     private List<RecipeStep> steps;
 
-    @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "recipe_id")
     private List<BrewSession> sessions;
 
 }

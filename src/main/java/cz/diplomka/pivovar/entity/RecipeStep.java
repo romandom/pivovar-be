@@ -32,7 +32,7 @@ public class RecipeStep {
     private BrewingVessel vessel;
 
     @Column(nullable = false)
-    private boolean isTransferStep;
+    private boolean isDecoctionStep;
 
 }
 

@@ -1,9 +1,12 @@
 package cz.diplomka.pivovar.controller;
 
+import cz.diplomka.pivovar.dto.StepResponse;
 import cz.diplomka.pivovar.entity.Recipe;
 import cz.diplomka.pivovar.repository.RecipeRepository;
 import cz.diplomka.pivovar.service.RecipeService;
+import cz.diplomka.pivovar.service.StepService;
 import lombok.RequiredArgsConstructor;
+import lombok.val;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +18,8 @@ import java.util.Map;
 public class RecipeController {
 
     private final RecipeService recipeService;
+
+    private final StepService stepService;
 
     private final RecipeRepository recipeRepository;
 
@@ -36,6 +41,12 @@ public class RecipeController {
 
     @GetMapping("{id}")
     public ResponseEntity<Recipe> getRecipe(@PathVariable int id) {
-        return ResponseEntity.ok(recipeRepository.findById(id).orElse(null));
+        val recipe = recipeRepository.findById(id).orElse(null);
+        return ResponseEntity.ok(recipe);
+    }
+
+    @GetMapping("/{id}/step")
+    public ResponseEntity<StepResponse> getRecipeStep(@PathVariable int id) {
+        return ResponseEntity.ok(stepService.getStep(id));
     }
 }
