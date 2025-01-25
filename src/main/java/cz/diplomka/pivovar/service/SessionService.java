@@ -43,4 +43,12 @@ public class SessionService {
         actualSession.getLogs().add(brewLog);
         brewSessionRepository.save(actualSession);
     }
+
+    public void changeSessionStatus() {
+        val sessions = brewSessionRepository.findAll();
+        val actualSession = sessions.stream().filter(s -> s.getStatus().equals(BrewSessionStatus.IN_PROGRESS)).findFirst().orElseThrow();
+        actualSession.setStatus(BrewSessionStatus.CANCELLED);
+        actualSession.setEndTime(LocalDateTime.now());
+        brewSessionRepository.save(actualSession);
+    }
 }

@@ -63,20 +63,31 @@ public class HardwareControlService {
 
     // temperatures
     public Map<String, String> getTemperature() throws IOException {
-        final String response = arduinoService.sendCommand("GET_TEMP");
-        final String[] temperaturesArray = response.split(",");
+        final String[] temperaturesArray = sendGetTempAndSplitResponse();
 
         final Map<String, String> temperatures = new HashMap<>();
         temperatures.put("mashTemperature", temperaturesArray[0]);
         temperatures.put("worthTemperature", temperaturesArray[1]);
 
+        return temperatures;
+    }
+
+    public void getAndSaveTemperatures() throws IOException {
+        final String[] temperaturesArray = sendGetTempAndSplitResponse();
+
         if (!temperaturesArray[0].isEmpty()) {
             sessionService.saveActualTemperatures(Double.parseDouble(temperaturesArray[0]), BrewingVessel.MAIN_KETTLE);
-        } if (!temperaturesArray[1].isEmpty()) {
-            sessionService.saveActualTemperatures(Double.parseDouble(temperaturesArray[1]), BrewingVessel.DECOCTION_KETTLE);
         }
+        if (temperaturesArray.length > 1) {
+            if (!temperaturesArray[1].isEmpty()) {
+                sessionService.saveActualTemperatures(Double.parseDouble(temperaturesArray[1]), BrewingVessel.DECOCTION_KETTLE);
+            }
+        }
+    }
 
-        return temperatures;
+    private String[] sendGetTempAndSplitResponse() throws IOException {
+        final String response = arduinoService.sendCommand("GET_TEMP");
+        return response.split(",");
     }
 
     private void executeCommand(String command, String successMessage, String errorMessage) throws IOException {

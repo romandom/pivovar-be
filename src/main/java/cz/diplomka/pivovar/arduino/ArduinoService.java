@@ -17,12 +17,14 @@ public class ArduinoService {
             throw new IllegalStateException("Serial port is not open");
         }
 
+        serialPort.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING,5000,0);
         serialPort.getOutputStream().write((command.trim() + "\n").getBytes());
         serialPort.getOutputStream().flush();
 
         byte[] buffer = new byte[1024];
         int len = serialPort.getInputStream().read(buffer);
         return new String(buffer, 0, len).trim();
+        //return null;
     }
 }
 

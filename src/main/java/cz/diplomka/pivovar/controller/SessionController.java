@@ -17,4 +17,10 @@ public class SessionController {
     public ResponseEntity<BrewSession> createSession(@RequestBody BrewSession session, @PathVariable int recipeId) {
         return ResponseEntity.ok(sessionService.createSession(session, recipeId));
     }
+
+    @PostMapping("/cancelled")
+    public ResponseEntity<Void> changeSessionStatus() {
+        sessionService.changeSessionStatus();
+        return ResponseEntity.noContent().build();
+    }
 }
