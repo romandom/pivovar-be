@@ -13,7 +13,8 @@ public class ArduinoConfig {
 
     @Bean
     public SerialPort serialPort() {
-        serialPort = SerialPort.getCommPort("COM3");
+        //serialPort = SerialPort.getCommPort("COM3");
+        serialPort = SerialPort.getCommPort("/dev/ttyUSB0");
         serialPort.setComPortParameters(9600, 8, 1, 0);
         serialPort.setComPortTimeouts(SerialPort.TIMEOUT_WRITE_BLOCKING, 0, 0);
 
