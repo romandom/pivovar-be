@@ -1,16 +1,7 @@
 package cz.diplomka.pivovar.entity;
 
 import cz.diplomka.pivovar.constant.BrewSessionStatus;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -33,7 +24,8 @@ public class BrewSession {
     @Enumerated(EnumType.STRING)
     private BrewSessionStatus status;
 
-    @OneToMany(mappedBy = "brewSession", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "brew_session_id")
     private List<BrewLog> logs;
 
     @Column

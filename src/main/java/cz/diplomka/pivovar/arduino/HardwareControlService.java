@@ -1,5 +1,7 @@
 package cz.diplomka.pivovar.arduino;
 
+import cz.diplomka.pivovar.constant.BrewingVessel;
+import cz.diplomka.pivovar.service.SessionService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -12,6 +14,7 @@ import java.util.Map;
 public class HardwareControlService {
 
     private final ArduinoService arduinoService;
+    private final SessionService sessionService;
 
     // Mash heater
     public void turnOnMashHeater(int targetTemperature) throws IOException {
@@ -49,40 +52,13 @@ public class HardwareControlService {
         executeCommand("STOP_WORTH_MIXING","Worth mixing turned off successfully.", "Failed to turn off worth mixing");
     }
 
-    // Transfer to worth kettle
-    public void turnOnWorthKettleTransfer() throws IOException {
-        executeCommand("START_WORTH_TRANSFER", "Worth transfer turned on successfully.", "Failed to turn on worth transfer");
+    // Transfer
+    public void turnOnKettleTransfer() throws IOException {
+        executeCommand("START_TRANSFER", "Transfer turned on successfully.", "Failed to turn on transfer");
     }
 
-    public void turnOffWorthKettleTransfer() throws IOException {
-        executeCommand("STOP_WORTH_TRANSFER", "Worth transfer turned off successfully.", "Failed to turn off worth transfer");
-    }
-
-    // Transfer to mash kettle
-    public void turnOnMashKettleTransfer() throws IOException {
-        executeCommand("START_MASH_TRANSFER", "Mash transfer turned on successfully.", "Failed to turn on mash transfer");
-    }
-
-    public void turnOffMashKettleTransfer() throws IOException {
-        executeCommand("STOP_MASH_TRANSFER", "Mash transfer turned off successfully.", "Failed to turn off mash transfer");
-    }
-
-    // Mash selenoid
-    public void openMashKettle() throws IOException {
-        executeCommand("OPEN_MASH_KETTLE", "Mash kettle opened successfully.", "Failed to open mash kettle");
-    }
-
-    public void closeMashKettle() throws IOException {
-        executeCommand("CLOSE_MASH_KETTLE", "Mash kettle closed successfully.", "Failed to open mash kettle");
-    }
-
-    // Worth selenoid
-    public void openWorthKettle() throws IOException {
-        executeCommand("OPEN_WORTH_KETTLE", "Worth kettle opened successfully.", "Failed to open worth kettle");
-    }
-
-    public void closeWorthKettle() throws IOException {
-        executeCommand("CLOSE_WORTH_KETTLE", "Worth kettle closed successfully.", "Failed to open worth kettle");
+    public void turnOffKettleTransfer() throws IOException {
+        executeCommand("STOP_TRANSFER", "Transfer turned off successfully.", "Failed to turn off transfer");
     }
 
     // temperatures
@@ -93,6 +69,12 @@ public class HardwareControlService {
         final Map<String, String> temperatures = new HashMap<>();
         temperatures.put("mashTemperature", temperaturesArray[0]);
         temperatures.put("worthTemperature", temperaturesArray[1]);
+
+        if (!temperaturesArray[0].isEmpty()) {
+            sessionService.saveActualTemperatures(Double.parseDouble(temperaturesArray[0]), BrewingVessel.MAIN_KETTLE);
+        } if (!temperaturesArray[1].isEmpty()) {
+            sessionService.saveActualTemperatures(Double.parseDouble(temperaturesArray[1]), BrewingVessel.DECOCTION_KETTLE);
+        }
 
         return temperatures;
     }

@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
+@Transactional
 public class RecipeService {
 
     private final RecipeRepository recipeRepository;
@@ -21,11 +22,11 @@ public class RecipeService {
         return recipes.stream().collect(Collectors.toMap(Recipe::getId, Recipe::getName));
     }
 
-    @Transactional
+
     public Recipe createRecipe(Recipe recipeToSave) {
         return recipeRepository.save(recipeToSave);
     }
 
-    @Transactional
+
     public void deleteRecipeById(int id) { recipeRepository.deleteById(id); }
 }

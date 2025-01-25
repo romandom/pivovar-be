@@ -1,5 +1,6 @@
 package cz.diplomka.pivovar.entity;
 
+import cz.diplomka.pivovar.constant.BrewingProcess;
 import cz.diplomka.pivovar.constant.BrewingVessel;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -33,6 +34,9 @@ public class RecipeStep {
 
     @Column(nullable = false)
     private boolean isDecoctionStep;
+
+    @Enumerated(EnumType.STRING)
+    private BrewingProcess process;
 
 }
 
