@@ -1,8 +1,7 @@
 package cz.diplomka.pivovar.constant;
 
-public enum BrewSessionStatus {
+public enum BrewingStatus {
     IN_PROGRESS,
     COMPLETED,
-    CANCELLED
+    CANCELLED,
 }
-

@@ -1,1 +1,0 @@
-ALTER TABLE brew_logs DROP COLUMN process;

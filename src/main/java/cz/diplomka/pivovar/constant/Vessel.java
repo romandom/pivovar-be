@@ -1,6 +1,6 @@
 package cz.diplomka.pivovar.constant;
 
-public enum BrewingProcess {
+public enum Vessel {
     MASHING,
-    HOPPING
+    DOUGHING
 }

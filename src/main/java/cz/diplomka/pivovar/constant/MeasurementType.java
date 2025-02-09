@@ -1,8 +1,6 @@
 package cz.diplomka.pivovar.constant;
 
-public enum AlertType {
+public enum MeasurementType {
     TEMPERATURE,
-    ACTION,
-    ERROR
+    WEIGHT,
 }
-

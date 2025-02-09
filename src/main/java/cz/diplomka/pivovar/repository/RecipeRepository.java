@@ -1,6 +1,6 @@
 package cz.diplomka.pivovar.repository;
 
-import cz.diplomka.pivovar.entity.Recipe;
+import cz.diplomka.pivovar.model.Recipe;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

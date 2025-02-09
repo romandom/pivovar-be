@@ -1,7 +1,5 @@
 package cz.diplomka.pivovar.arduino;
 
-import cz.diplomka.pivovar.constant.BrewingVessel;
-import cz.diplomka.pivovar.service.SessionService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,24 +12,14 @@ import java.util.Map;
 public class HardwareControlService {
 
     private final ArduinoService arduinoService;
-    private final SessionService sessionService;
+    //private final SessionService sessionService;
 
-    // Mash heater
-    public void turnOnMashHeater(int targetTemperature) throws IOException {
-        executeCommand("START_MASH_HEATING:" + targetTemperature, "Mash heater turned on successfully.", "Failed to turn on mash heater");
+    public void turnOnHeater(int targetTemperature) throws IOException {
+        executeCommand("START_HEATING:" + targetTemperature, "Heater turned on successfully.", "Failed to turn on heater");
     }
 
-    public void turnOffMashHeater() throws IOException {
-        executeCommand("STOP_MASH_HEATING", "Mash heater turned off successfully.", "Failed to turn mash off heater");
-    }
-
-    // Worth heater
-    public void turnOnWorthHeater(int targetTemperature) throws IOException {
-        executeCommand("START_WORTH_HEATING:" + targetTemperature, "Worth heater turned on successfully.", "Failed to turn on worth heater");
-    }
-
-    public void turnOffWorthHeater(int targetTemperature) throws IOException {
-        executeCommand("STOP_WORTH_HEATING:" + targetTemperature, "Worth heater turned off successfully.", "Failed to turn off worth heater");
+    public void turnOffHeater() throws IOException {
+        executeCommand("STOP_HEATING", "Heater turned off successfully.", "Failed to turn off heater");
     }
 
     // Mash mixing
@@ -52,15 +40,6 @@ public class HardwareControlService {
         executeCommand("STOP_WORTH_MIXING","Worth mixing turned off successfully.", "Failed to turn off worth mixing");
     }
 
-    // Transfer
-    public void turnOnKettleTransfer() throws IOException {
-        executeCommand("START_TRANSFER", "Transfer turned on successfully.", "Failed to turn on transfer");
-    }
-
-    public void turnOffKettleTransfer() throws IOException {
-        executeCommand("STOP_TRANSFER", "Transfer turned off successfully.", "Failed to turn off transfer");
-    }
-
     // temperatures
     public Map<String, String> getTemperature() throws IOException {
         final String[] temperaturesArray = sendGetTempAndSplitResponse();
@@ -76,11 +55,11 @@ public class HardwareControlService {
         final String[] temperaturesArray = sendGetTempAndSplitResponse();
 
         if (!temperaturesArray[0].isEmpty()) {
-            sessionService.saveActualTemperatures(Double.parseDouble(temperaturesArray[0]), BrewingVessel.MAIN_KETTLE);
+            //sessionService.saveActualTemperatures(Double.parseDouble(temperaturesArray[0]), BrewingVessel.MAIN_KETTLE);
         }
         if (temperaturesArray.length > 1) {
             if (!temperaturesArray[1].isEmpty()) {
-                sessionService.saveActualTemperatures(Double.parseDouble(temperaturesArray[1]), BrewingVessel.DECOCTION_KETTLE);
+                //sessionService.saveActualTemperatures(Double.parseDouble(temperaturesArray[1]), BrewingVessel.DECOCTION_KETTLE);
             }
         }
     }
