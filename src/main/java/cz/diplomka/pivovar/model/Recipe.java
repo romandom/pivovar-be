@@ -48,7 +48,7 @@ public class Recipe {
     private List<HoppingStep> hoppingSteps;
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "ingredient_id", referencedColumnName = "id", unique = true)
+    @JoinColumn(name = "ingredient_id", unique = true)
     private Ingredient ingredient;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
