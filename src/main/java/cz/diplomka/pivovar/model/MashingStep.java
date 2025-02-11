@@ -19,6 +19,9 @@ public class MashingStep {
     @Column(nullable = false)
     private Integer stepNumber;
 
+    @Column(nullable = false)
+    private Integer temperature;
+
     @Column(name = "duration", nullable = false)
     private Integer time;
 

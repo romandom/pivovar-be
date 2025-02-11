@@ -9,7 +9,6 @@ import lombok.val;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -18,11 +17,6 @@ import java.util.stream.Collectors;
 public class RecipeService {
 
     private final RecipeRepository recipeRepository;
-
-//    public Map<Long, String> getAllRecipeNames() {
-//        val recipes = recipeRepository.findAll();
-//        return recipes.stream().collect(Collectors.toMap(Recipe::getId, Recipe::getName));
-//    }
 
 
     public Recipe createRecipe(Recipe recipeToSave) {

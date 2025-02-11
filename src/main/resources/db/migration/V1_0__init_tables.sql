@@ -24,6 +24,7 @@ CREATE TABLE mashing_steps
 (
     id          BIGSERIAL PRIMARY KEY,
     recipe_id   BIGINT REFERENCES recipes (id) ON DELETE CASCADE,
+    temperature INT NOT NULL,
     step_number INT NOT NULL,
     duration    INT NOT NULL,
     percentage  INT NOT NULL
