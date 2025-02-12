@@ -18,8 +18,6 @@ public class RecipeController {
 
     private final RecipeService recipeService;
 
-//    private final StepService stepService;
-
     private final RecipeRepository recipeRepository;
 
     @PostMapping("create")
@@ -37,7 +35,7 @@ public class RecipeController {
         return ResponseEntity.ok(recipeRepository.findById(id).orElseThrow());
     }
 
-    @DeleteMapping("delete/{id}")
+    @DeleteMapping("{id}")
     public ResponseEntity<Void> deleteRecipe(@PathVariable int id) {
         recipeService.deleteRecipeById(id);
         return ResponseEntity.noContent().build();
