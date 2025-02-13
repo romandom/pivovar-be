@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.val;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -21,10 +22,15 @@ public class HistoryService {
         return recipes
                 .stream()
                 .flatMap(recipe -> recipe.getBrewSessions().stream()
-                        .limit(1)
-                        .map(
-                                brewSession -> new HistoryList(recipe.getId(), brewSession.getStartTime().toLocalDate(), recipe.getName(), brewSession.getStatus()))
+                        .map(brewSession -> new HistoryList(
+                                brewSession.getId(),
+                                brewSession.getStartTime().toLocalDate(),
+                                recipe.getName(),
+                                brewSession.getStatus()
+                        ))
                 )
+                .sorted(Comparator.comparing(HistoryList::date).reversed())
                 .toList();
     }
+
 }
