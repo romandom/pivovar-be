@@ -55,17 +55,17 @@ public class HardwareControlService {
         final String[] temperaturesArray = sendGetTempAndSplitResponse();
 
         if (!temperaturesArray[0].isEmpty()) {
-            //sessionService.saveActualTemperatures(Double.parseDouble(temperaturesArray[0]), BrewingVessel.MAIN_KETTLE);
+            //sessionService.saveMashingTemperature(Double.parseDouble(temperaturesArray[0]));
         }
         if (temperaturesArray.length > 1) {
             if (!temperaturesArray[1].isEmpty()) {
-                //sessionService.saveActualTemperatures(Double.parseDouble(temperaturesArray[1]), BrewingVessel.DECOCTION_KETTLE);
+                //sessionService.saveDougingTemperature(Double.parseDouble(temperaturesArray[1]));
             }
         }
     }
 
     private String[] sendGetTempAndSplitResponse() throws IOException {
-        final String response = arduinoService.sendCommand("GET_TEMP");
+        final String response = arduinoService.sendCommand("GET_TEMPS");
         return response.split(",");
     }
 

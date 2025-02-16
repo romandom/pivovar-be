@@ -1,5 +1,6 @@
 package cz.diplomka.pivovar.service;
 
+import cz.diplomka.pivovar.constant.RecipeStatus;
 import cz.diplomka.pivovar.dto.RecipeList;
 import cz.diplomka.pivovar.model.Recipe;
 import cz.diplomka.pivovar.repository.RecipeRepository;
@@ -24,7 +25,9 @@ public class RecipeService {
     }
 
 
-    public void deleteRecipeById(int id) { recipeRepository.deleteById(id); }
+    public void deleteRecipeById(int id) {
+        recipeRepository.deleteById(id);
+    }
 
     public List<RecipeList> getAllRecipes() {
         val recipeList = recipeRepository.findAll();
@@ -36,5 +39,11 @@ public class RecipeService {
                         recipe.getAlcohol()
                 ))
                 .collect(Collectors.toList());
+    }
+
+    public Long getBrewedRecipe() {
+        val recipeList = recipeRepository.findAll();
+        val brewedRecipe = recipeList.stream().filter(r -> r.getStatus() == RecipeStatus.BREWING).findFirst().orElse(null);
+        return brewedRecipe == null ? null : brewedRecipe.getId();
     }
 }

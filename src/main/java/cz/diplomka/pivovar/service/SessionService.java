@@ -1,23 +1,27 @@
-//package cz.diplomka.pivovar.service;
-//
-//import cz.diplomka.pivovar.repository.RecipeRepository;
-//import jakarta.persistence.EntityNotFoundException;
-//import jakarta.transaction.Transactional;
-//import lombok.RequiredArgsConstructor;
-//import lombok.val;
-//import org.springframework.stereotype.Service;
-//
-//import java.time.LocalDateTime;
-//
-//@RequiredArgsConstructor
-//@Service
-//@Transactional
-//public class SessionService {
-//
-//    private final RecipeRepository recipeRepository;
-//
-//    private final BrewSessionRepository brewSessionRepository;
-//
+package cz.diplomka.pivovar.service;
+
+import cz.diplomka.pivovar.constant.BrewingStatus;
+import cz.diplomka.pivovar.repository.BrewSessionRepository;
+import cz.diplomka.pivovar.repository.RecipeRepository;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import lombok.val;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+
+@RequiredArgsConstructor
+@Service
+@Transactional
+public class SessionService {
+
+    private final RecipeService recipeService;
+
+    private final BrewSessionRepository brewSessionRepository;
+
+    //public void saveTemperatureLogToSession(long recipeId, )
+
 //    public BrewSession createSession(BrewSession brewSession, int recipeId) {
 //        return recipeRepository.findById(recipeId).map(recipe -> {
 //            val brewSessionSaved = brewSessionRepository.save(brewSession);
@@ -38,6 +42,18 @@
 //        actualSession.getLogs().add(brewLog);
 //        brewSessionRepository.save(actualSession);
 //    }
+
+    public void saveMashingTemperature(double temperature) {
+        val brewedRecipeId = recipeService.getBrewedRecipe();
+        if (brewedRecipeId == null) {
+            return;
+        }
+
+        //val bws = brewSessionRepository.findBrewSessionsByStatus(BrewingStatus.IN_PROGRESS);
+
+        //bws.stream().filter(bw -> bw.)
+
+    }
 //
 //    public void changeSessionStatus() {
 //        val sessions = brewSessionRepository.findAll();
@@ -46,4 +62,4 @@
 //        actualSession.setEndTime(LocalDateTime.now());
 //        brewSessionRepository.save(actualSession);
 //    }
-//}
+}
