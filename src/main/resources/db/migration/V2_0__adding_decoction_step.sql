@@ -1,1 +1,0 @@
-ALTER TABLE brew_sessions ADD COLUMN decoction_step BOOLEAN DEFAULT FALSE;

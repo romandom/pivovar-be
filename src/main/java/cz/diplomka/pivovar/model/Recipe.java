@@ -1,7 +1,6 @@
 package cz.diplomka.pivovar.model;
 
 import cz.diplomka.pivovar.constant.MashType;
-import cz.diplomka.pivovar.constant.RecipeStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -30,10 +29,6 @@ public class Recipe {
     private Integer alcohol;
     private Integer ibu;
     private Integer ebc;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private RecipeStatus status;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

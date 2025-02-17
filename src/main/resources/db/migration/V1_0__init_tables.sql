@@ -14,7 +14,6 @@ CREATE TABLE recipes
     alcohol       DOUBLE PRECISION,
     ibu           INT,
     ebc           INT,
-    status        TEXT NOT NULL CHECK (status IN ('BREWING', 'NOT_BREWING')),
     mash_type     TEXT NOT NULL CHECK (mash_type IN ('INFUSION', 'DECOCTION')),
     ingredient_id BIGINT UNIQUE,
     CONSTRAINT fk_recipe_ingredient FOREIGN KEY (ingredient_id) REFERENCES ingredients (id)
@@ -63,8 +62,8 @@ CREATE TABLE brew_sessions
     start_time    TIMESTAMP NOT NULL,
     end_time      TIMESTAMP,
     status        TEXT      NOT NULL CHECK (status IN ('IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
-    current_step  INT       NOT NULL,
-    brewing_phase TEXT      NOT NULL CHECK (brewing_phase IN ('MASHING', 'BOILING'))
+    current_step  INT       ,
+    brewing_phase TEXT      NOT NULL CHECK (brewing_phase IN ('HEATING', 'DOUGHING', 'LAUTERING', 'MASHING', 'BOILING', 'COOLING'))
 );
 
 CREATE TABLE brew_logs
