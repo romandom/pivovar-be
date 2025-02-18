@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
+import java.util.Map;
 
 @RequiredArgsConstructor
 @RestController
@@ -25,7 +26,7 @@ public class BrewController {
     }
 
     @PostMapping("/doughing/{recipeId}")
-    public ResponseEntity<String> doughing(@PathVariable("recipeId") int recipeId) throws IOException {
+    public ResponseEntity<Map<String, String>> doughing(@PathVariable("recipeId") int recipeId) throws IOException {
         return ResponseEntity.ok(brewService.doughing(recipeId));
     }
 

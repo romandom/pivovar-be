@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -47,7 +49,7 @@ public class BrewService {
                 firstMashingStep.getTemperature());
     }
 
-    public String doughing(int recipeId) throws IOException {
+    public Map<String, String> doughing(int recipeId) throws IOException {
         val recipe = recipeRepository.findById(recipeId).orElseThrow();
         val brewSession = recipe.getBrewSessions()
                 .stream()
@@ -61,9 +63,14 @@ public class BrewService {
 
         hardwareControlService.turnOnMashMixing();
 
-        return "Nasypte " + recipe.getIngredient().getMalts().stream()
+        val message = "Nasypte " + recipe.getIngredient().getMalts().stream()
                 .map(malt -> malt.getName() + " - " + malt.getWeight() + " kg")
                 .collect(Collectors.joining(", "));
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", message);
+
+        return response;
     }
 
     public BrewResponse nextBrewingStep(int recipeId) {

@@ -33,7 +33,6 @@ public class BrewSession {
     @Column(nullable = false)
     private BrewingStatus status;
 
-    @Column(nullable = false)
     private Integer currentStep;
 
     @Enumerated(EnumType.STRING)
