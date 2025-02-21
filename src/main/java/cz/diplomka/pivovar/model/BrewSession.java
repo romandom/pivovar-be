@@ -3,9 +3,8 @@ package cz.diplomka.pivovar.model;
 import cz.diplomka.pivovar.constant.BrewingPhase;
 import cz.diplomka.pivovar.constant.BrewingStatus;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -14,6 +13,8 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class BrewSession {
 
     @Id

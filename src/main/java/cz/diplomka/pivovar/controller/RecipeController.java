@@ -1,6 +1,6 @@
 package cz.diplomka.pivovar.controller;
 
-import cz.diplomka.pivovar.dto.RecipeList;
+import cz.diplomka.pivovar.dto.RecipeListDto;
 import cz.diplomka.pivovar.model.Recipe;
 import cz.diplomka.pivovar.repository.RecipeRepository;
 import cz.diplomka.pivovar.service.RecipeService;
@@ -26,7 +26,7 @@ public class RecipeController {
     }
 
     @GetMapping("list")
-    public ResponseEntity<List<RecipeList>> getAllRecipes() {
+    public ResponseEntity<List<RecipeListDto>> getAllRecipes() {
         return ResponseEntity.ok(recipeService.getAllRecipes());
     }
 

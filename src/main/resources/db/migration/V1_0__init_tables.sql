@@ -62,8 +62,10 @@ CREATE TABLE brew_sessions
     start_time    TIMESTAMP NOT NULL,
     end_time      TIMESTAMP,
     status        TEXT      NOT NULL CHECK (status IN ('IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
-    current_step  INT       ,
-    brewing_phase TEXT      NOT NULL CHECK (brewing_phase IN ('HEATING', 'DOUGHING', 'LAUTERING', 'MASHING', 'BOILING', 'COOLING'))
+    current_step  INT,
+    brewing_phase TEXT      NOT NULL CHECK (brewing_phase IN
+                                            ('MASHING', 'BOILING',
+                                             'STARTED'))
 );
 
 CREATE TABLE brew_logs

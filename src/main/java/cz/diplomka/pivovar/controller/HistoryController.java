@@ -1,6 +1,6 @@
 package cz.diplomka.pivovar.controller;
 
-import cz.diplomka.pivovar.dto.HistoryList;
+import cz.diplomka.pivovar.dto.HistoryListDto;
 import cz.diplomka.pivovar.model.BrewSession;
 import cz.diplomka.pivovar.repository.BrewSessionRepository;
 import cz.diplomka.pivovar.service.HistoryService;
@@ -22,7 +22,7 @@ public class HistoryController {
     private final BrewSessionRepository brewSessionRepository;
 
     @GetMapping("list")
-    public ResponseEntity<List<HistoryList>> getAllHistory() {
+    public ResponseEntity<List<HistoryListDto>> getAllHistory() {
         return ResponseEntity.ok(historyService.getHistoryList());
     }
 

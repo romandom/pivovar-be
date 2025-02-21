@@ -1,6 +1,6 @@
 package cz.diplomka.pivovar.service;
 
-import cz.diplomka.pivovar.dto.RecipeList;
+import cz.diplomka.pivovar.dto.RecipeListDto;
 import cz.diplomka.pivovar.model.Recipe;
 import cz.diplomka.pivovar.repository.RecipeRepository;
 import jakarta.transaction.Transactional;
@@ -28,9 +28,9 @@ public class RecipeService {
         recipeRepository.deleteById(id);
     }
 
-    public List<RecipeList> getAllRecipes() {
+    public List<RecipeListDto> getAllRecipes() {
         val recipeList = recipeRepository.findAll();
-        return recipeList.stream().map(recipe -> new RecipeList(
+        return recipeList.stream().map(recipe -> new RecipeListDto(
                         recipe.getId(),
                         recipe.getName(),
                         recipe.getStyle(),
