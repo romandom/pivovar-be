@@ -36,6 +36,8 @@ public class BrewSession {
 
     private Integer currentStep;
 
+    private boolean overPumping;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private BrewingPhase brewingPhase;

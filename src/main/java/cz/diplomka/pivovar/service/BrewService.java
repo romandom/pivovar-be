@@ -7,15 +7,19 @@ import cz.diplomka.pivovar.dto.BrewResponseDto;
 import cz.diplomka.pivovar.dto.DoughingDto;
 import cz.diplomka.pivovar.dto.StepDto;
 import cz.diplomka.pivovar.model.BrewSession;
+import cz.diplomka.pivovar.model.HoppingStep;
+import cz.diplomka.pivovar.model.MashingStep;
+import cz.diplomka.pivovar.model.Recipe;
 import cz.diplomka.pivovar.repository.BrewSessionRepository;
 import cz.diplomka.pivovar.repository.RecipeRepository;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.val;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Objects;
 
 @RequiredArgsConstructor
@@ -29,242 +33,221 @@ public class BrewService {
     private final HardwareControlService hardwareControlService;
 
 
-    public BrewResponseDto nextBrewingStep(int recipeId) throws IOException {
-        val recipe = recipeRepository.findById(recipeId).orElseThrow();
+    public BrewResponseDto nextBrewingStep(int recipeId) {
+        final Recipe recipe = recipeRepository.findById(recipeId)
+                .orElseThrow(() -> new EntityNotFoundException("Recipe not found"));
 
-        val brewingSessions = recipe.getBrewSessions();
-
-        var brewingSession = brewingSessions.stream()
-                .filter(bs -> bs.getStatus().equals(BrewingStatus.IN_PROGRESS))
+        return recipe.getBrewSessions().stream()
+                .filter(bs -> bs.getStatus() == BrewingStatus.IN_PROGRESS)
                 .findFirst()
-                .orElse(null);
+                .map(brewingSession -> {
+                    try {
+                        return switch (brewingSession.getBrewingPhase()) {
+                            case STARTED -> handleStartedPhase(recipe, brewingSession);
+                            case MASHING -> handleMashingPhase(recipe, brewingSession);
+                            case BOILING -> handleBoilingPhase(recipe, brewingSession);
+                        };
+                    } catch (IOException e) {
+                        throw new RuntimeException("Error processing brewing step", e);
+                    }
+                })
+                .orElseGet(() -> {
+                    try {
+                        return handleNullBrewingSession(recipe);
+                    } catch (IOException e) {
+                        throw new RuntimeException("Error handling null brewing session", e);
+                    }
+                });
+    }
 
-        if (brewingSession == null) {
-            brewingSession = BrewSession.builder()
-                    .startTime(LocalDateTime.now())
-                    .currentStep(0)
-                    .brewingPhase(BrewingPhase.STARTED)
-                    .status(BrewingStatus.IN_PROGRESS)
-                    .build();
-            recipe.getBrewSessions().add(brewingSession);
-            recipeRepository.save(recipe);
 
-            val heatingTemperature = recipe.getMashingSteps()
-                    .stream()
-                    .filter(mashingStep -> mashingStep.getStepNumber() == 1)
-                    .findFirst()
-                    .orElseThrow()
-                    .getTemperature();
+    private BrewResponseDto handleNullBrewingSession(Recipe recipe) throws IOException {
+        final BrewSession brewingSession = BrewSession.builder()
+                .startTime(LocalDateTime.now())
+                .currentStep(0)
+                .brewingPhase(BrewingPhase.STARTED)
+                .status(BrewingStatus.IN_PROGRESS)
+                .build();
+        recipe.getBrewSessions().add(brewingSession);
+        recipeRepository.save(recipe);
 
-            val doughingDtoList = recipe.getIngredient().getMalts()
-                    .stream()
-                    .map(malt -> DoughingDto.builder().name(malt.getName()).weight(malt.getWeight()).build())
-                    .toList();
+        final int heatingTemperature = getMashingStepByStepNumber(recipe, 1).getTemperature();
 
-            hardwareControlService.turnOnHeater(heatingTemperature);
+        final List<DoughingDto> doughingDtoList = recipe.getIngredient().getMalts()
+                .stream()
+                .map(malt -> DoughingDto.builder().name(malt.getName()).weight(malt.getWeight()).build())
+                .toList();
 
-            return BrewResponseDto.builder()
-                    .heatingTemperature(heatingTemperature)
-                    .doughingDtoList(doughingDtoList)
-                    .build();
+        hardwareControlService.turnOnHeater(heatingTemperature);
+
+        return BrewResponseDto.builder()
+                .heatingTemperature(heatingTemperature)
+                .doughingDtoList(doughingDtoList)
+                .build();
+    }
+
+    private BrewResponseDto handleStartedPhase(Recipe recipe, BrewSession brewingSession) throws IOException {
+        brewingSession.setCurrentStep(1);
+        brewingSession.setBrewingPhase(BrewingPhase.MASHING);
+        brewSessionRepository.save(brewingSession);
+
+        hardwareControlService.turnOnMashMixing();
+
+        final MashingStep actualStep = getMashingStepByStepNumber(recipe, 1);
+        final MashingStep nextStep = getMashingStepByStepNumber(recipe, 2);
+
+        final BrewResponseDto.BrewResponseDtoBuilder responseBuilder = BrewResponseDto.builder()
+                .actualStep(buildStepDtoForMashing(actualStep))
+                .brewingPhase(BrewingPhase.MASHING);
+
+        if (nextStep != null) {
+            responseBuilder.nextStep(buildStepDtoForMashing(nextStep));
         }
 
-        if (brewingSession.getBrewingPhase() == BrewingPhase.STARTED) {
-            brewingSession.setCurrentStep(1);
-            brewingSession.setBrewingPhase(BrewingPhase.MASHING);
+        return responseBuilder.build();
+    }
 
-            hardwareControlService.turnOnMashMixing();
 
-            val actualStep = recipe.getMashingSteps().stream().filter(step -> step.getStepNumber() == 1).findFirst().orElseThrow();
-            val nextStep = recipe.getMashingSteps().stream().filter(step -> step.getStepNumber() == 2).findFirst().orElse(null);
+    private BrewResponseDto handleMashingPhase(Recipe recipe, BrewSession brewingSession) throws IOException {
+        int currentStepNumber = brewingSession.getCurrentStep();
+        final MashingStep nextStep = getMashingStepByStepNumber(recipe, currentStepNumber + 1);
 
-            val actualStepDto = StepDto.builder()
-                    .stepNumber(actualStep.getStepNumber())
-                    .percentage(actualStep.getPercentage())
-                    .duration(actualStep.getTime())
-                    .temperature(actualStep.getTemperature())
-                    .build();
-
-            if (nextStep == null) {
-                return BrewResponseDto.builder()
-                        .actualStep(actualStepDto)
-                        .brewingPhase(BrewingPhase.MASHING)
-                        .build();
-            }
-            val nextStepDto = StepDto.builder()
-                    .stepNumber(nextStep.getStepNumber())
-                    .percentage(nextStep.getPercentage())
-                    .duration(nextStep.getTime())
-                    .temperature(nextStep.getTemperature())
-                    .build();
-
-            return BrewResponseDto.builder()
-                    .actualStep(actualStepDto)
-                    .nextStep(nextStepDto)
-                    .brewingPhase(BrewingPhase.MASHING)
-                    .build();
-
-        } else if (brewingSession.getBrewingPhase() == BrewingPhase.MASHING) {
-            val currentStepNumber = brewingSession.getCurrentStep();
-            val nextStep = recipe.getMashingSteps().stream()
-                    .filter(step -> step.getStepNumber() == currentStepNumber + 1)
-                    .findFirst()
-                    .orElse(null);
-
-            if (nextStep == null) {
-                brewingSession.setBrewingPhase(BrewingPhase.BOILING);
-                brewingSession.setCurrentStep(0);
-                brewSessionRepository.save(brewingSession);
-
-                return BrewResponseDto.builder()
-                        .lautering(true)
-                        .build();
-            }
-
-            brewingSession.setBrewingPhase(BrewingPhase.MASHING);
-            brewingSession.setCurrentStep(currentStepNumber + 1);
+        if (nextStep == null) {
+            brewingSession.setBrewingPhase(BrewingPhase.BOILING);
+            brewingSession.setCurrentStep(0);
             brewSessionRepository.save(brewingSession);
 
-            var overPumping = true;
-            val currentStep = recipe.getMashingSteps().stream()
-                    .filter(step -> Objects.equals(step.getStepNumber(), currentStepNumber))
-                    .findFirst()
-                    .orElseThrow();
+            return BrewResponseDto.builder().lautering(true).build();
+        }
 
-            var decoctionTemperature = 0;
+        final MashingStep currentStep = recipe.getMashingSteps().stream()
+                .filter(step -> step.getStepNumber() == currentStepNumber)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Current mashing step not found"));
 
-            if (nextStep.getPercentage() == 100) {
-                if (currentStep.getPercentage() == 100) {
-                    overPumping = false;
+        boolean overPumping = currentStep.getPercentage() == 100 && nextStep.getPercentage() != 100;
+        Integer decoctionTemperature = null;
+
+        if (!overPumping) {
+            if (currentStep.getPercentage() != 100) {
+                for (int i = currentStepNumber - 1; i >= 0; i--) {
+                    final MashingStep previousStep = getMashingStepByStepNumber(recipe, i);
+                    if (previousStep != null && previousStep.getPercentage() == 100) {
+                        decoctionTemperature = previousStep.getTemperature();
+                        break;
+                    }
                 }
             } else {
-                if (currentStep.getPercentage() != 100) {
-                    var stop = true;
-                    overPumping = false;
-                    while (stop) {
-                        val step = recipe.getMashingSteps().stream()
-                                .filter(s -> Objects.equals(s.getStepNumber(), currentStepNumber - 1))
-                                .findFirst()
-                                .orElseThrow();
-                        if (step.getPercentage() == 100) {
-                            stop = false;
-                            decoctionTemperature = step.getTemperature();
-                        }
-                    }
-                } else {
-                    decoctionTemperature = currentStep.getTemperature();
-                }
+                decoctionTemperature = currentStep.getTemperature();
             }
+        }
 
-            val afterNextStep = recipe.getMashingSteps().stream()
-                    .filter(step -> Objects.equals(step.getStepNumber(), currentStepNumber + 2))
-                    .findFirst()
-                    .orElse(null);
-
-            val actualStepDto = StepDto.builder()
-                    .stepNumber(nextStep.getStepNumber())
-                    .percentage(nextStep.getPercentage())
-                    .duration(nextStep.getTime())
-                    .temperature(nextStep.getTemperature())
-                    .build();
-
-            if (afterNextStep == null) {
-                return BrewResponseDto
-                        .builder()
-                        .brewingPhase(BrewingPhase.MASHING)
-                        .decoctionTemperature(decoctionTemperature == 0 ? null : decoctionTemperature)
-                        .actualStep(actualStepDto)
-                        .overpumping(overPumping)
-                        .build();
-            }
-
-            val afterNextStepDto = StepDto.builder()
-                    .stepNumber(afterNextStep.getStepNumber())
-                    .percentage(afterNextStep.getPercentage())
-                    .duration(afterNextStep.getTime())
-                    .temperature(afterNextStep.getTemperature())
-                    .build();
-
-            hardwareControlService.turnOnHeater(actualStepDto.getTemperature());
-
-            return BrewResponseDto
-                    .builder()
-                    .brewingPhase(BrewingPhase.MASHING)
-                    .decoctionTemperature(decoctionTemperature == 0 ? null : decoctionTemperature)
-                    .actualStep(actualStepDto)
-                    .nextStep(afterNextStepDto)
-                    .overpumping(overPumping)
-                    .build();
-        } else if (brewingSession.getBrewingPhase() == BrewingPhase.BOILING) {
-            val currentStepNumber = brewingSession.getCurrentStep();
-            val nextStep = recipe.getHoppingSteps().stream()
-                    .filter(hoppingStep -> Objects.equals(hoppingStep.getStepNumber(), currentStepNumber + 1))
-                    .findFirst()
-                    .orElse(null);
-
-            if (nextStep == null) {
-                hardwareControlService.turnOffHeater();
-
-                brewingSession.setBrewingPhase(BrewingPhase.BOILING);
-                brewingSession.setCurrentStep(0);
-                brewingSession.setEndTime(LocalDateTime.now());
-                brewingSession.setStatus(BrewingStatus.COMPLETED);
-                brewSessionRepository.save(brewingSession);
-
-                return BrewResponseDto.builder()
-                        .cooling(true)
-                        .build();
-            }
-
-            brewingSession.setBrewingPhase(BrewingPhase.BOILING);
-            brewingSession.setCurrentStep(currentStepNumber + 1);
+        if (overPumping && !brewingSession.isOverPumping()) {
+            brewingSession.setOverPumping(true);
             brewSessionRepository.save(brewingSession);
 
-            hardwareControlService.turnOnHeater(100);
-            hardwareControlService.turnOffMashMixing();
-
-            val firstStep = recipe.getHoppingSteps().stream()
-                    .filter(step -> Objects.equals(step.getStepNumber(), 1))
-                    .findFirst()
-                    .orElse(null);
-
-            val afterNextStep = recipe.getHoppingSteps().stream()
-                    .filter(step -> Objects.equals(step.getStepNumber(), currentStepNumber + 2))
-                    .findFirst()
-                    .orElse(null);
-
-            val actualStepDto = StepDto.builder()
-                    .stepNumber(nextStep.getStepNumber())
-                    .duration(nextStep.getTime())
-                    .name(nextStep.getName())
-                    .build();
-
-            if (afterNextStep == null) {
-                assert firstStep != null;
-                return BrewResponseDto.builder()
-                        .heatingTemperature(100)
-                        .brewingPhase(BrewingPhase.BOILING)
-                        .boilingTime(firstStep.getTime())
-                        .actualStep(actualStepDto)
-                        .build();
-            }
-
-            val nextStepDto = StepDto.builder()
-                    .stepNumber(afterNextStep.getStepNumber())
-                    .duration(afterNextStep.getTime())
-                    .name(afterNextStep.getName())
-                    .build();
-
-            assert firstStep != null;
             return BrewResponseDto.builder()
-                    .heatingTemperature(100)
-                    .brewingPhase(BrewingPhase.BOILING)
-                    .boilingTime(firstStep.getTime())
-                    .actualStep(actualStepDto)
-                    .nextStep(nextStepDto)
+                    .brewingPhase(BrewingPhase.MASHING)
+                    .overpumping(true)
                     .build();
         }
-        return null;
+
+        final MashingStep afterNextStep = getMashingStepByStepNumber(recipe, currentStepNumber + 2);
+        hardwareControlService.turnOnHeater(nextStep.getTemperature());
+
+        brewingSession.setBrewingPhase(BrewingPhase.MASHING);
+        brewingSession.setCurrentStep(currentStepNumber + 1);
+        brewingSession.setOverPumping(false);
+        brewSessionRepository.save(brewingSession);
+
+        final BrewResponseDto.BrewResponseDtoBuilder responseBuilder = BrewResponseDto.builder()
+                .brewingPhase(BrewingPhase.MASHING)
+                .decoctionTemperature(decoctionTemperature)
+                .actualStep(buildStepDtoForMashing(nextStep));
+
+        if (afterNextStep != null) {
+            responseBuilder.nextStep(buildStepDtoForMashing(afterNextStep));
+        }
+
+        return responseBuilder.build();
+    }
+
+
+    private BrewResponseDto handleBoilingPhase(Recipe recipe, BrewSession brewingSession) throws IOException {
+        final int currentStepNumber = brewingSession.getCurrentStep();
+        final HoppingStep nextStep = getHoppingStepByStepNumber(recipe, currentStepNumber + 1);
+
+        if (nextStep == null) {
+            hardwareControlService.turnOffHeater();
+
+            brewingSession.setBrewingPhase(BrewingPhase.BOILING);
+            brewingSession.setCurrentStep(0);
+            brewingSession.setEndTime(LocalDateTime.now());
+            brewingSession.setStatus(BrewingStatus.COMPLETED);
+            brewSessionRepository.save(brewingSession);
+
+            return BrewResponseDto.builder()
+                    .cooling(true)
+                    .build();
+        }
+
+        brewingSession.setBrewingPhase(BrewingPhase.BOILING);
+        brewingSession.setCurrentStep(currentStepNumber + 1);
+        brewSessionRepository.save(brewingSession);
+
+        hardwareControlService.turnOnHeater(100);
+        hardwareControlService.turnOffMashMixing();
+
+        final HoppingStep firstStep = getHoppingStepByStepNumber(recipe, 1);
+        final HoppingStep afterNextStep = getHoppingStepByStepNumber(recipe, currentStepNumber + 2);
+
+        BrewResponseDto.BrewResponseDtoBuilder responseBuilder = BrewResponseDto.builder()
+                .heatingTemperature(100)
+                .brewingPhase(BrewingPhase.BOILING);
+
+        if (firstStep != null) {
+            responseBuilder.boilingTime(firstStep.getTime());
+        }
+
+        responseBuilder.actualStep(buildStepDtoForHopping(nextStep));
+
+        if (afterNextStep != null) {
+            responseBuilder.nextStep(buildStepDtoForHopping(afterNextStep));
+        }
+
+        return responseBuilder.build();
+    }
+
+
+    private StepDto buildStepDtoForHopping(HoppingStep hoppingStep) {
+        return StepDto.builder()
+                .stepNumber(hoppingStep.getStepNumber())
+                .duration(hoppingStep.getTime())
+                .name(hoppingStep.getName())
+                .build();
+    }
+
+    private StepDto buildStepDtoForMashing(MashingStep mashingStep) {
+        return StepDto.builder()
+                .stepNumber(mashingStep.getStepNumber())
+                .percentage(mashingStep.getPercentage())
+                .duration(mashingStep.getTime())
+                .temperature(mashingStep.getTemperature())
+                .build();
+    }
+
+    private HoppingStep getHoppingStepByStepNumber(Recipe recipe, int stepNumber) {
+        return recipe.getHoppingSteps().stream()
+                .filter(step -> Objects.equals(step.getStepNumber(), stepNumber))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private MashingStep getMashingStepByStepNumber(Recipe recipe, int stepNumber) {
+        return recipe.getMashingSteps().stream()
+                .filter(step -> Objects.equals(step.getStepNumber(), stepNumber))
+                .findFirst()
+                .orElse(null);
     }
 
 }
