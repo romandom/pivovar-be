@@ -15,6 +15,7 @@ import java.util.List;
 public class BrewResponseDto {
     private Integer heatingTemperature;
     private Integer decoctionTemperature;
+    private Integer overpumpingPercentage;
     private Boolean lautering;
     private Boolean overpumping;
     private Boolean cooling;

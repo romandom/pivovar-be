@@ -1,15 +1,14 @@
 package cz.diplomka.pivovar.controller;
 
 import cz.diplomka.pivovar.dto.HistoryListDto;
+import cz.diplomka.pivovar.dto.TemperatureGraphDto;
+import cz.diplomka.pivovar.model.BrewLog;
 import cz.diplomka.pivovar.model.BrewSession;
 import cz.diplomka.pivovar.repository.BrewSessionRepository;
 import cz.diplomka.pivovar.service.HistoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -31,4 +30,16 @@ public class HistoryController {
         return ResponseEntity.ok(brewSessionRepository.findById(id).orElseThrow());
     }
 
+    @GetMapping("/temperature/{historyId}")
+    public ResponseEntity<List<TemperatureGraphDto>> getTemperatureHistoryByHistoryId(@PathVariable int historyId) {
+        return ResponseEntity.ok(historyService.getTemperatureByHistoryId(historyId));
+    }
+
+    @PostMapping("/{historyId}")
+    public void postSessions(@RequestBody List<BrewLog> logs, @PathVariable int historyId) {
+        BrewSession brewSession = brewSessionRepository.findById(historyId)
+                .orElseThrow(() -> new RuntimeException("BrewSession s ID " + historyId + " neexistuje"));
+        brewSession.getBrewLogs().addAll(logs);
+        brewSessionRepository.save(brewSession);
+    }
 }
