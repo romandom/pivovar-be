@@ -8,6 +8,7 @@ import cz.diplomka.pivovar.repository.BrewSessionRepository;
 import cz.diplomka.pivovar.repository.RecipeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 @Transactional
@@ -26,6 +28,7 @@ public class HistoryService {
 
     public List<HistoryListDto> getHistoryList() {
         val recipes = recipeRepository.findAll();
+        log.debug("Getting history list");
         return recipes
                 .stream()
                 .flatMap(recipe -> recipe.getBrewSessions().stream()
@@ -42,8 +45,7 @@ public class HistoryService {
 
     public List<TemperatureGraphDto> getTemperatureByHistoryId(int historyId) {
         final BrewSession brewSession = brewSessionRepository.findById(historyId).orElseThrow();
-
-        final LocalDateTime startTime = brewSession.getStartTime();
+        log.debug("Getting temperature graph by history id {}", historyId);
 
         return brewSession.getBrewLogs()
                 .stream()

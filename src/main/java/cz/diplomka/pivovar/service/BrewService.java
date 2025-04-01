@@ -1,24 +1,23 @@
 package cz.diplomka.pivovar.service;
 
-import cz.diplomka.pivovar.arduino.HardwareControlService;
 import cz.diplomka.pivovar.constant.BrewingPhase;
 import cz.diplomka.pivovar.constant.BrewingStatus;
-import cz.diplomka.pivovar.dto.BrewResponseDto;
-import cz.diplomka.pivovar.dto.DoughingDto;
-import cz.diplomka.pivovar.dto.SensorsResponseDto;
-import cz.diplomka.pivovar.dto.StepDto;
+import cz.diplomka.pivovar.dto.*;
 import cz.diplomka.pivovar.model.*;
 import cz.diplomka.pivovar.repository.BrewSessionRepository;
 import cz.diplomka.pivovar.repository.RecipeRepository;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class BrewService {
@@ -26,12 +25,14 @@ public class BrewService {
     private final RecipeRepository recipeRepository;
     private final BrewSessionRepository brewSessionRepository;
 
-    private final HardwareControlService hardwareControlService;
-
-
     public BrewResponseDto nextBrewingStep(int recipeId) {
-        final Recipe recipe = recipeRepository.findById(recipeId)
-                .orElseThrow(() -> new EntityNotFoundException("Recipe not found"));
+        var optionalRecipe = recipeRepository.findById(recipeId);
+
+        if (optionalRecipe.isEmpty()) {
+            log.error("Entity not found for recipe {}", recipeId);
+        }
+
+        var recipe = optionalRecipe.get();
 
         return recipe.getBrewSessions().stream()
                 .filter(bs -> bs.getStatus() == BrewingStatus.IN_PROGRESS)
@@ -44,15 +45,17 @@ public class BrewService {
                             case BOILING -> handleBoilingPhase(recipe, brewingSession);
                         };
                     } catch (IOException | InterruptedException e) {
-                        throw new RuntimeException("Error processing brewing step", e);
+                        log.error("Error processing brewing step", e);
                     }
+                    return null;
                 })
                 .orElseGet(() -> {
                     try {
                         return handleNullBrewingSession(recipe);
                     } catch (IOException | InterruptedException e) {
-                        throw new RuntimeException("Error handling null brewing session", e);
+                        log.error("Error handling null brewing session", e);
                     }
+                    return null;
                 });
     }
 
@@ -65,6 +68,7 @@ public class BrewService {
                 .status(BrewingStatus.IN_PROGRESS)
                 .build();
         recipe.getBrewSessions().add(brewingSession);
+        log.debug("Brewing session {} started", brewingSession.getId());
         recipeRepository.save(recipe);
 
         final int heatingTemperature = getMashingStepByStepNumber(recipe, 1).getTemperature();
@@ -73,8 +77,6 @@ public class BrewService {
                 .stream()
                 .map(malt -> DoughingDto.builder().name(malt.getName()).weight(malt.getWeight()).build())
                 .toList();
-
-        //hardwareControlService.turnOnHeater(heatingTemperature);
 
         return BrewResponseDto.builder()
                 .heatingTemperature(heatingTemperature)
@@ -86,8 +88,6 @@ public class BrewService {
         brewingSession.setCurrentStep(1);
         brewingSession.setBrewingPhase(BrewingPhase.MASHING);
         brewSessionRepository.save(brewingSession);
-
-        //hardwareControlService.turnOnMashMixing();
 
         final MashingStep actualStep = getMashingStepByStepNumber(recipe, 1);
         final MashingStep nextStep = getMashingStepByStepNumber(recipe, 2);
@@ -151,7 +151,6 @@ public class BrewService {
         }
 
         final MashingStep afterNextStep = getMashingStepByStepNumber(recipe, currentStepNumber + 2);
-        //hardwareControlService.turnOnHeater(nextStep.getTemperature());
 
         brewingSession.setBrewingPhase(BrewingPhase.MASHING);
         brewingSession.setCurrentStep(currentStepNumber + 1);
@@ -176,12 +175,9 @@ public class BrewService {
         final HoppingStep nextStep = getHoppingStepByStepNumber(recipe, currentStepNumber + 1);
 
         if (nextStep == null) {
-            //hardwareControlService.turnOffHeater();
 
             brewingSession.setBrewingPhase(BrewingPhase.BOILING);
             brewingSession.setCurrentStep(0);
-            brewingSession.setEndTime(LocalDateTime.now());
-            brewingSession.setStatus(BrewingStatus.COMPLETED);
             brewSessionRepository.save(brewingSession);
 
             return BrewResponseDto.builder()
@@ -192,9 +188,6 @@ public class BrewService {
         brewingSession.setBrewingPhase(BrewingPhase.BOILING);
         brewingSession.setCurrentStep(currentStepNumber + 1);
         brewSessionRepository.save(brewingSession);
-
-        //hardwareControlService.turnOnHeater(100);
-       // hardwareControlService.turnOffMashMixing();
 
         final HoppingStep firstStep = getHoppingStepByStepNumber(recipe, 1);
         final HoppingStep afterNextStep = getHoppingStepByStepNumber(recipe, currentStepNumber + 2);
@@ -274,23 +267,27 @@ public class BrewService {
         return brewSession.getStartTime().isBefore(sixHoursAgo);
     }
 
-    public void saveBrewSensorData(SensorsResponseDto sensorsResponseDto) {
-        final BrewLog brewLog = new BrewLog();
-        brewLog.setTimestamp(LocalDateTime.now());
-        brewLog.setMashTemperature(sensorsResponseDto.getMashTemperature());
-        brewLog.setWorthTemperature(sensorsResponseDto.getWorthTemperature());
-        brewLog.setMashWeight(sensorsResponseDto.getMashWeight());
-        brewLog.setWorthWeight(sensorsResponseDto.getWorthWeight());
+    public List<TemperatureGraphDto> getTemperaturesToGraph() {
+        var brewSession = brewSessionRepository.findBrewSessionByStatus(BrewingStatus.IN_PROGRESS).getFirst();
 
-        final BrewSession brewSession = brewSessionRepository.findAll()
+        return brewSession.getBrewLogs()
                 .stream()
-                .filter(bs -> bs.getStatus().equals(BrewingStatus.IN_PROGRESS))
-                .findFirst()
-                .orElse(null);
+                .sorted(Comparator.comparing(BrewLog::getTimestamp))
+                .map(brewLog -> {
+                    final long minutes = Duration.between(brewSession.getStartTime(), brewLog.getTimestamp()).toMinutes();
+                    return new TemperatureGraphDto(minutes, brewLog.getMashTemperature(), brewLog.getWorthTemperature());
+                }).toList();
+    }
 
-        if (brewSession != null) {
-            brewSession.getBrewLogs().add(brewLog);
-            brewSessionRepository.save(brewSession);
-        }
+    public List<WeightGraphDto> getWeightsToGraph() {
+        var brewSession = brewSessionRepository.findBrewSessionByStatus(BrewingStatus.IN_PROGRESS).getFirst();
+
+        return brewSession.getBrewLogs()
+                .stream()
+                .sorted(Comparator.comparing(BrewLog::getTimestamp))
+                .map(brewLog -> {
+                    final long minutes = Duration.between(brewSession.getStartTime(), brewLog.getTimestamp()).toMinutes();
+                    return new WeightGraphDto(minutes, brewLog.getMashWeight(), brewLog.getWorthWeight());
+                }).toList();
     }
 }

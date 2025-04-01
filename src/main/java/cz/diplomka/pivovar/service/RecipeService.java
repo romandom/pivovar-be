@@ -5,6 +5,7 @@ import cz.diplomka.pivovar.model.Recipe;
 import cz.diplomka.pivovar.repository.RecipeRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.springframework.stereotype.Service;
 
@@ -14,22 +15,26 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Service
 @Transactional
+@Slf4j
 public class RecipeService {
 
     private final RecipeRepository recipeRepository;
 
 
     public Recipe createRecipe(Recipe recipeToSave) {
+        log.debug("Creating new recipe");
         return recipeRepository.save(recipeToSave);
     }
 
 
     public void deleteRecipeById(int id) {
+        log.debug("Deleting recipe with id {}", id);
         recipeRepository.deleteById(id);
     }
 
     public List<RecipeListDto> getAllRecipes() {
         val recipeList = recipeRepository.findAll();
+        log.debug("Get all recipes");
         return recipeList.stream().map(recipe -> new RecipeListDto(
                         recipe.getId(),
                         recipe.getName(),
@@ -38,12 +43,5 @@ public class RecipeService {
                         recipe.getAlcohol()
                 ))
                 .collect(Collectors.toList());
-    }
-
-    public Long getBrewedRecipe() {
-        val recipeList = recipeRepository.findAll();
-//        val brewedRecipe = recipeList.stream().filter(r -> r.getStatus() == RecipeStatus.BREWING).findFirst().orElse(null);
-////        return brewedRecipe == null ? null : brewedRecipe.getId();
-        return null;
     }
 }

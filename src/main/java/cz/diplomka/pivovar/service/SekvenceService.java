@@ -1,21 +1,29 @@
 package cz.diplomka.pivovar.service;
 
 import cz.diplomka.pivovar.arduino.HardwareControlService;
+import cz.diplomka.pivovar.constant.BrewingStatus;
 import cz.diplomka.pivovar.constant.MessageType;
-import cz.diplomka.pivovar.dto.BrewingMessage;
+import cz.diplomka.pivovar.dto.*;
+import cz.diplomka.pivovar.model.BrewLog;
+import cz.diplomka.pivovar.repository.BrewSessionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class SekvenceService {
@@ -23,6 +31,7 @@ public class SekvenceService {
     private final SimpMessagingTemplate messagingTemplate;
     private final BrewService brewService;
     private final HardwareControlService hardwareControlService;
+    private final BrewSessionRepository brewSessionRepository;
 
     private CountDownLatch doughingLatch;
     private CountDownLatch overpumpingLatch;
@@ -31,17 +40,19 @@ public class SekvenceService {
     private ScheduledExecutorService sensorDataScheduler;
     private ScheduledExecutorService repeatingMessageScheduler;
     private final AtomicBoolean repeatingMessageActive = new AtomicBoolean(false);
+    private final AtomicBoolean stopRecipe = new AtomicBoolean(false);
 
     public void startBrewing(int recipeId) {
-        startSensorDataLogging();
         try {
+            startSensorDataLogging();
             while (true) {
                 var brewResponseDto = brewService.nextBrewingStep(recipeId);
-                if (brewResponseDto.getHeatingTemperature() != null && !brewResponseDto.getDoughingDtoList().isEmpty()) {
+                if (brewResponseDto.getHeatingTemperature() != null && Boolean.FALSE.equals(brewResponseDto.getDoughingDtoList().isEmpty())) {
                     int targetTemperature = brewResponseDto.getHeatingTemperature();
                     heatingToTargetTemperature(targetTemperature);
-
-                    sendRepeatingMessage(new BrewingMessage(MessageType.DOUGHING, "Nasypte"));
+                    String doughingToMessage = fillStringOfDoughing(brewResponseDto.getDoughingDtoList());
+                    sendRepeatingMessage(new BrewingMessage(MessageType.DOUGHING, "Nasypte: " + doughingToMessage, nextStepBuilder(brewResponseDto)));
+                    log.debug("Doughing {}", doughingToMessage);
                     waitForUserInteractionOnDoughing();
                 } else if (brewResponseDto.getActualStep() != null) {
                     int targetTemperature = brewResponseDto.getActualStep().getTemperature();
@@ -50,20 +61,57 @@ public class SekvenceService {
                     int countDownTimeInSeconds = brewResponseDto.getActualStep().getDuration() * 60;
                     startCountdownTimer(countDownTimeInSeconds);
                 } else if (Boolean.TRUE.equals(brewResponseDto.getOverpumping())) {
-                    sendRepeatingMessage(new BrewingMessage(MessageType.OVERPUMPING, "Prečerpajte"));
+                    sendRepeatingMessage(new BrewingMessage(MessageType.OVERPUMPING, "Prečerpajte: V hlavnej nádobe má byť " + brewResponseDto.getOverpumpingPercentage() + "%", nextStepBuilder(brewResponseDto)));
+                    log.debug("Overpumping brewing step. In main kettle should be {}%", brewResponseDto.getOverpumpingPercentage());
                     waitForUserInteractionOnOverpumping();
                 } else if (Boolean.TRUE.equals(brewResponseDto.getLautering())) {
-                    sendRepeatingMessage(new BrewingMessage(MessageType.LAUTERING, "Vyslaďte"));
+                    sendRepeatingMessage(new BrewingMessage(MessageType.LAUTERING, "Vyslaďte", nextStepBuilder(brewResponseDto)));
+                    log.debug("Lautering");
                     waitForUserInteractionOnLautering();
                 } else if (Boolean.TRUE.equals(brewResponseDto.getCooling())) {
-                    sendRepeatingMessage(new BrewingMessage(MessageType.COOLING, "Schlaďte na teplotu kvasenia"));
+                    sendRepeatingMessage(new BrewingMessage(MessageType.COOLING, "Schlaďte na teplotu kvasenia", nextStepBuilder(brewResponseDto)));
+                    log.debug("Cooling");
                     waitForUserInteractionOnLautering();
+                } else if (stopRecipe.get()) {
+                    break;
                 }
             }
         }
         finally {
             stopSensorDataLogging();
+            log.debug("Stopping sensor data logging");
+
+            brewSessionRepository.findBrewSessionByStatus(BrewingStatus.IN_PROGRESS)
+                    .stream()
+                    .findFirst()
+                    .ifPresent(brewSession -> {
+                        brewSession.setStatus(BrewingStatus.COMPLETED);
+                        brewSession.setEndTime(LocalDateTime.now());
+                        brewSessionRepository.save(brewSession);
+                    });
+            log.debug("Brewing completed.");
         }
+    }
+
+    private String nextStepBuilder(BrewResponseDto brewResponseDto) {
+        if (brewResponseDto.getNextStep() == null) {
+            return "";
+        }
+        return switch (brewResponseDto.getBrewingPhase()) {
+            case MASHING -> "Následujúci krok: " +
+                    brewResponseDto.getNextStep().getTemperature() + "°C " +
+                    brewResponseDto.getNextStep().getDuration() + "minút";
+            case BOILING -> "Následujúci krok: " +
+                    brewResponseDto.getNextStep().getName() + " " +
+                    brewResponseDto.getNextStep().getWeight() +  "g";
+            default -> "";
+        };
+    }
+
+    private String fillStringOfDoughing(List<DoughingDto> doughingDtoList) {
+        return doughingDtoList.stream()
+                .map(DoughingDto::toString)
+                .collect(Collectors.joining(", "));
     }
 
     private void startSensorDataLogging() {
@@ -71,12 +119,27 @@ public class SekvenceService {
         sensorDataScheduler.scheduleAtFixedRate(() -> {
             try {
                 var sensorsData = hardwareControlService.getSensorsData();
-//                sensorsData.setTimestamp(LocalDateTime.now());
-//                sensorDataService.save(sensorsData);
+                brewSessionRepository.findBrewSessionByStatus(BrewingStatus.IN_PROGRESS)
+                        .stream()
+                        .findFirst()
+                        .ifPresent(bs -> {
+                            bs.getBrewLogs().add(createBrewLog(sensorsData));
+                            brewSessionRepository.save(bs);
+                        });
             } catch (IOException | InterruptedException e) {
-                e.printStackTrace();
+                log.error("Sensor data logging error. Cannot find brewing session.");
             }
         }, 0, 1, TimeUnit.MINUTES);
+    }
+
+    private BrewLog createBrewLog(SensorsResponseDto sensorsResponseDto) {
+        var brewLog = new BrewLog();
+        brewLog.setWorthWeight(sensorsResponseDto.getWorthWeight());
+        brewLog.setMashWeight(sensorsResponseDto.getMashWeight());
+        brewLog.setMashTemperature(sensorsResponseDto.getMashTemperature());
+        brewLog.setWorthTemperature(sensorsResponseDto.getWorthTemperature());
+        brewLog.setTimestamp(LocalDateTime.now());
+        return brewLog;
     }
 
     private void stopSensorDataLogging() {
@@ -101,7 +164,7 @@ public class SekvenceService {
             timerScheduler.scheduleAtFixedRate(() -> {
                 int seconds = remainingSeconds.decrementAndGet();
                 if (seconds >= 0) {
-                    messagingTemplate.convertAndSend("/topic/brewing", new BrewingMessage(MessageType.TIMER, formatTime(seconds)));
+                    messagingTemplate.convertAndSend("/topic/brewing", new BrewingMessage(MessageType.TIMER, formatTime(seconds), ""));
                     timerLatch.countDown();
                 } else {
                     timerScheduler.shutdown();
@@ -124,7 +187,8 @@ public class SekvenceService {
     }
 
     private void heatingToTargetTemperature(int targetTemperature) {
-        sendRepeatingMessage(new BrewingMessage(MessageType.HEATING, "Zohrievam na teplotu " + targetTemperature));
+        sendRepeatingMessage(new BrewingMessage(MessageType.HEATING, "Zohrievam na teplotu " + targetTemperature + "°C", ""));
+        log.debug("Heating to temperature: {}°C", targetTemperature);
         waitForTargetTemperature(targetTemperature);
     }
 
@@ -163,9 +227,10 @@ public class SekvenceService {
                         latch.countDown();
                         scheduler.shutdown();
                         stopRepeatingMessage();
+                        log.debug("Temperature saving stopped.");
                     }
                 } catch (IOException | InterruptedException e) {
-                    System.err.println("Error getting sensor data: " + e.getMessage());
+                    log.error("Error getting sensor data during saving.");
                 }
             }, 0, 2, TimeUnit.SECONDS);
 
@@ -208,6 +273,7 @@ public class SekvenceService {
         if (doughingLatch != null) {
             doughingLatch.countDown();
             stopRepeatingMessage();
+            log.debug("Doughing done.");
         }
     }
 
@@ -215,6 +281,7 @@ public class SekvenceService {
         if (overpumpingLatch != null) {
             overpumpingLatch.countDown();
             stopRepeatingMessage();
+            log.debug("Overpumping done.");
         }
     }
 
@@ -222,6 +289,11 @@ public class SekvenceService {
         if (lauteringLatch != null) {
             lauteringLatch.countDown();
             stopRepeatingMessage();
+            log.debug("Lautering done.");
         }
+    }
+
+    public void stop() {
+        stopRecipe.set(true);
     }
 }

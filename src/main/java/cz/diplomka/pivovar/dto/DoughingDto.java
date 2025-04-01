@@ -14,4 +14,9 @@ import java.math.BigDecimal;
 public class DoughingDto {
     private String name;
     private BigDecimal weight;
+
+    @Override
+    public String toString() {
+        return name + ": " + weight + "kg";
+    }
 }

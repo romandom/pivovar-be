@@ -1,16 +1,16 @@
 package cz.diplomka.pivovar.controller;
 
 import cz.diplomka.pivovar.dto.BrewResponseDto;
+import cz.diplomka.pivovar.dto.TemperatureGraphDto;
+import cz.diplomka.pivovar.dto.WeightGraphDto;
 import cz.diplomka.pivovar.service.BrewService;
 import cz.diplomka.pivovar.service.SekvenceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
@@ -36,15 +36,16 @@ public class BrewController {
         return ResponseEntity.noContent().build();
     }
 
-//    @PostMapping("/stop/{recipeId}")
-//    public ResponseEntity<Boolean> stopBrewing(@PathVariable("recipeId") int recipeId) throws IOException {
-//        return ResponseEntity.ok(brewService.checkBrewing(recipeId));
-//    }
+    @PostMapping("/stop")
+    public ResponseEntity<Void> stopBrewing() throws IOException {
+        sekvenceService.stop();
+        return ResponseEntity.noContent().build();
+    }
 
     @PostMapping("/doughing")
     public ResponseEntity<Void> doughing() {
         sekvenceService.doughingDone();
-        return ResponseEntity.ok().body(null);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/overpumping")
@@ -57,5 +58,20 @@ public class BrewController {
     public ResponseEntity<Void> lautering() {
         sekvenceService.lauteringDone();
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/status/{recipeId}")
+    public ResponseEntity<Boolean> checkBrewingStatus(@PathVariable int recipeId) {
+        return ResponseEntity.ok(brewService.checkBrewing(recipeId));
+    }
+
+    @GetMapping("/graph/temperatures")
+    public ResponseEntity<List<TemperatureGraphDto>> getTemperaturesToGraph() {
+        return ResponseEntity.ok(brewService.getTemperaturesToGraph());
+    }
+
+    @GetMapping("/graph/weights")
+    public ResponseEntity<List<WeightGraphDto>> getWeightsToGraph() {
+        return ResponseEntity.ok(brewService.getWeightsToGraph());
     }
 }

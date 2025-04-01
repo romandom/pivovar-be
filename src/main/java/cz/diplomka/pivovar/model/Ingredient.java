@@ -24,11 +24,11 @@ public class Ingredient {
     @Column(nullable = false)
     private Integer lautering;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "ingredient_id")
     private List<Malt> malts;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "ingredient_id")
     private List<Hop> hops;
 }

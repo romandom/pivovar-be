@@ -34,11 +34,11 @@ public class Recipe {
     @Column(nullable = false)
     private MashType mashType;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "recipe_id")
     private List<MashingStep> mashingSteps;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "recipe_id")
     private List<HoppingStep> hoppingSteps;
 
@@ -46,7 +46,7 @@ public class Recipe {
     @JoinColumn(name = "ingredient_id", unique = true)
     private Ingredient ingredient;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "recipe_id")
     private List<BrewSession> brewSessions;
 }

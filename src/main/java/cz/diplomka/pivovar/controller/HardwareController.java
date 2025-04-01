@@ -14,7 +14,7 @@ public class HardwareController {
     private final HardwareControlService hardwareControlService;
 
     @PostMapping("temperature/mash/{temperature}")
-    public void setMashTemperature(@PathVariable("temperature") int temperature) throws IOException, InterruptedException {
+    public void setMashTemperature(@PathVariable("temperature") int temperature) throws IOException {
         hardwareControlService.turnOnHeater(temperature);
     }
 }
