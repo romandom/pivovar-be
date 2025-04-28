@@ -1,6 +1,7 @@
 package cz.diplomka.pivovar.constant;
 
-public enum BrewingProcess {
+public enum BrewingPhase {
     MASHING,
-    HOPPING
+    BOILING,
+    STARTED
 }

@@ -1,13 +1,13 @@
 package cz.diplomka.pivovar.websocket;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import cz.diplomka.pivovar.arduino.HardwareControlService;
+import cz.diplomka.pivovar.dto.SensorsResponseDto;
+import cz.diplomka.pivovar.service.BrewService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.scheduling.annotation.Scheduled;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -16,11 +16,10 @@ public class WebSocketController {
 
     private final HardwareControlService hardwareControlService;
     private final SimpMessagingTemplate messagingTemplate;
-    private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, String> activeUsers = new ConcurrentHashMap<>();
 
     @Autowired
-    public WebSocketController(HardwareControlService hardwareControlService, SimpMessagingTemplate messagingTemplate) {
+    public WebSocketController(HardwareControlService hardwareControlService, SimpMessagingTemplate messagingTemplate, BrewService brewService) {
         this.hardwareControlService = hardwareControlService;
         this.messagingTemplate = messagingTemplate;
     }
@@ -37,24 +36,11 @@ public class WebSocketController {
     public void sendTemperatureUpdates() {
         if (!activeUsers.isEmpty()) {
             try {
-                final Map<String, String> temperatures = hardwareControlService.getTemperature();
+                final SensorsResponseDto sensorsData = hardwareControlService.getSensorsData();
 
-                final String jsonTemperatures = objectMapper.writeValueAsString(temperatures);
-
-                messagingTemplate.convertAndSend("/topic/temperature", jsonTemperatures);
+                messagingTemplate.convertAndSend("/topic/sensors", sensorsData);
             } catch (Exception e) {
                 messagingTemplate.convertAndSend("/topic/errors", e.getMessage());
-            }
-        }
-    }
-
-    @Scheduled(fixedRate = 60000)
-    public void saveTemperatureUpdates() {
-        if (!activeUsers.isEmpty()) {
-            try {
-                hardwareControlService.getAndSaveTemperatures();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
             }
         }
     }

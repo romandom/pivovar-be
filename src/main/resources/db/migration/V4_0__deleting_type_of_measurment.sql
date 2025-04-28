@@ -1,0 +1,1 @@
+ALTER TABLE brew_logs DROP COLUMN measurement_type;

@@ -2,10 +2,11 @@ package cz.diplomka.pivovar.arduino;
 
 import com.fazecast.jSerialComm.SerialPort;
 import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-
+@Slf4j
 @Configuration
 public class ArduinoConfig {
 
@@ -13,13 +14,13 @@ public class ArduinoConfig {
 
     @Bean
     public SerialPort serialPort() {
-        //serialPort = SerialPort.getCommPort("COM3");
-        serialPort = SerialPort.getCommPort("/dev/ttyUSB0");
-        serialPort.setComPortParameters(9600, 8, 1, 0);
+        serialPort = SerialPort.getCommPort("COM4");
+        //serialPort = SerialPort.getCommPort("/dev/ttyUSB0");
+        serialPort.setComPortParameters(250000, 8, 1, 0);
         serialPort.setComPortTimeouts(SerialPort.TIMEOUT_WRITE_BLOCKING, 0, 0);
 
         if (serialPort.openPort()) {
-            System.out.println("Succesfully opened serial port.");
+            log.debug("Succesfully opened serial port.");
         } else {
             throw new IllegalStateException("Cannot open serial port");
         }
@@ -31,7 +32,7 @@ public class ArduinoConfig {
     public void closePort() {
         if (serialPort != null && serialPort.isOpen()) {
             serialPort.closePort();
-            System.out.println("Serial port closed.");
+            log.debug("Succesfully closed serial port.");
         }
     }
 }

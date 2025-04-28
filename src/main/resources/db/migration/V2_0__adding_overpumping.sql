@@ -1,0 +1,1 @@
+ALTER TABLE brew_sessions ADD COLUMN over_pumping BOOLEAN NOT NULL DEFAULT FALSE;
