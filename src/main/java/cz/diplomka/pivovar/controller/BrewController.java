@@ -1,6 +1,7 @@
 package cz.diplomka.pivovar.controller;
 
 import cz.diplomka.pivovar.dto.BrewResponseDto;
+import cz.diplomka.pivovar.dto.PowerGraphDto;
 import cz.diplomka.pivovar.dto.TemperatureGraphDto;
 import cz.diplomka.pivovar.dto.WeightGraphDto;
 import cz.diplomka.pivovar.service.BrewService;
@@ -26,7 +27,7 @@ public class BrewController {
     }
 
     @PostMapping("/check/{recipeId}")
-    public ResponseEntity<Boolean> checkBrewing(@PathVariable("recipeId") int recipeId) throws IOException {
+    public ResponseEntity<Boolean> checkBrewing(@PathVariable("recipeId") int recipeId) {
         return ResponseEntity.ok(brewService.checkBrewing(recipeId));
     }
 
@@ -73,5 +74,10 @@ public class BrewController {
     @GetMapping("/graph/weights")
     public ResponseEntity<List<WeightGraphDto>> getWeightsToGraph() {
         return ResponseEntity.ok(brewService.getWeightsToGraph());
+    }
+
+    @GetMapping("/graph/power")
+    public ResponseEntity<List<PowerGraphDto>> getPowerToGraph() {
+        return ResponseEntity.ok(brewService.getPowerToGraph());
     }
 }

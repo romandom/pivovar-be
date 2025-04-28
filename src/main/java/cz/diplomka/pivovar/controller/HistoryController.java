@@ -1,7 +1,6 @@
 package cz.diplomka.pivovar.controller;
 
-import cz.diplomka.pivovar.dto.HistoryListDto;
-import cz.diplomka.pivovar.dto.TemperatureGraphDto;
+import cz.diplomka.pivovar.dto.*;
 import cz.diplomka.pivovar.model.BrewLog;
 import cz.diplomka.pivovar.model.BrewSession;
 import cz.diplomka.pivovar.repository.BrewSessionRepository;
@@ -30,9 +29,9 @@ public class HistoryController {
         return ResponseEntity.ok(brewSessionRepository.findById(id).orElseThrow());
     }
 
-    @GetMapping("/temperature/{historyId}")
-    public ResponseEntity<List<TemperatureGraphDto>> getTemperatureHistoryByHistoryId(@PathVariable int historyId) {
-        return ResponseEntity.ok(historyService.getTemperatureByHistoryId(historyId));
+    @GetMapping("/history-data/{historyId}")
+    public ResponseEntity<List<HistoryGraphDataDto>> getTemperatureHistoryByHistoryId(@PathVariable int historyId) {
+        return ResponseEntity.ok(historyService.getHistoryGraphData(historyId));
     }
 
     @PostMapping("/{historyId}")

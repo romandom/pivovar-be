@@ -7,4 +7,5 @@ public enum MessageType {
     TIMER,
     DOUGHING,
     COOLING,
+    STOP
 }

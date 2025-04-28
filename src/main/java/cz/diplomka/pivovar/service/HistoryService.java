@@ -1,7 +1,7 @@
 package cz.diplomka.pivovar.service;
 
+import cz.diplomka.pivovar.dto.HistoryGraphDataDto;
 import cz.diplomka.pivovar.dto.HistoryListDto;
-import cz.diplomka.pivovar.dto.TemperatureGraphDto;
 import cz.diplomka.pivovar.model.BrewLog;
 import cz.diplomka.pivovar.model.BrewSession;
 import cz.diplomka.pivovar.repository.BrewSessionRepository;
@@ -13,7 +13,6 @@ import lombok.val;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 
@@ -43,7 +42,7 @@ public class HistoryService {
                 .toList();
     }
 
-    public List<TemperatureGraphDto> getTemperatureByHistoryId(int historyId) {
+    public List<HistoryGraphDataDto> getHistoryGraphData(int historyId) {
         final BrewSession brewSession = brewSessionRepository.findById(historyId).orElseThrow();
         log.debug("Getting temperature graph by history id {}", historyId);
 
@@ -52,8 +51,14 @@ public class HistoryService {
                 .sorted(Comparator.comparing(BrewLog::getTimestamp))
                 .map(brewLog -> {
                     final long minutes = Duration.between(brewSession.getStartTime(), brewLog.getTimestamp()).toMinutes();
-                    return new TemperatureGraphDto(minutes, brewLog.getMashTemperature(), brewLog.getWorthTemperature());
+                    return HistoryGraphDataDto.builder()
+                            .minute(minutes)
+                            .mashTemperature(brewLog.getMashTemperature())
+                            .worthTemperature(brewLog.getWorthTemperature())
+                            .power(brewLog.getPower())
+                            .mashWeight(brewLog.getMashWeight())
+                            .worthHeight(brewLog.getWorthHeight())
+                            .build();
                 }).toList();
     }
-
 }

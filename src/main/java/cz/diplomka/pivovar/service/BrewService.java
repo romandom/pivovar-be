@@ -253,7 +253,7 @@ public class BrewService {
             return false;
         }
 
-        if (isOlderThanSixHours(brewSession)) {
+        if (isOlderThanTwelveHours(brewSession)) {
             brewSession.setEndTime(LocalDateTime.now());
             brewSession.setStatus(BrewingStatus.CANCELLED);
             brewSessionRepository.save(brewSession);
@@ -262,9 +262,9 @@ public class BrewService {
         return true;
     }
 
-    private boolean isOlderThanSixHours(BrewSession brewSession) {
-        LocalDateTime sixHoursAgo = LocalDateTime.now().minusHours(6);
-        return brewSession.getStartTime().isBefore(sixHoursAgo);
+    private boolean isOlderThanTwelveHours(BrewSession brewSession) {
+        LocalDateTime twelveHoursAgo = LocalDateTime.now().minusHours(12);
+        return brewSession.getStartTime().isBefore(twelveHoursAgo);
     }
 
     public List<TemperatureGraphDto> getTemperaturesToGraph() {
@@ -287,7 +287,20 @@ public class BrewService {
                 .sorted(Comparator.comparing(BrewLog::getTimestamp))
                 .map(brewLog -> {
                     final long minutes = Duration.between(brewSession.getStartTime(), brewLog.getTimestamp()).toMinutes();
-                    return new WeightGraphDto(minutes, brewLog.getMashWeight(), brewLog.getWorthWeight());
+                    return new WeightGraphDto(minutes, brewLog.getMashWeight());
                 }).toList();
     }
+
+    public List<PowerGraphDto> getPowerToGraph() {
+        var brewSession = brewSessionRepository.findBrewSessionByStatus(BrewingStatus.IN_PROGRESS).getFirst();
+
+        return brewSession.getBrewLogs()
+                .stream()
+                .sorted(Comparator.comparing(BrewLog::getTimestamp))
+                .map(brewLog -> {
+                    final long minutes = Duration.between(brewSession.getStartTime(), brewLog.getTimestamp()).toMinutes();
+                    return new PowerGraphDto(minutes, brewLog.getPower());
+                }).toList();
+    }
+
 }

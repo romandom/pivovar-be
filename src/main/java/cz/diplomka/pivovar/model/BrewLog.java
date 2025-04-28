@@ -19,10 +19,10 @@ public class BrewLog {
     private Long id;
 
     private double mashTemperature;
-    private double mashWeight;
+    private int mashWeight;
     private double worthTemperature;
-    private double worthWeight;
-
+    private int worthHeight;
+    private double power;
 
     @Column(nullable = false)
     private LocalDateTime timestamp;

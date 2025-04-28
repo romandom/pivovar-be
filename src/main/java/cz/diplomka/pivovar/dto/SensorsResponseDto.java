@@ -12,6 +12,9 @@ import lombok.RequiredArgsConstructor;
 public class SensorsResponseDto {
     private double mashTemperature;
     private double worthTemperature;
-    private double mashWeight;
-    private double worthWeight;
+    private int mashWeight;
+    private double worthHeight;
+    private boolean mixing;
+    private boolean heating;
+    private double power;
 }

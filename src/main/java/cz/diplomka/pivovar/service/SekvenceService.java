@@ -36,20 +36,27 @@ public class SekvenceService {
     private CountDownLatch doughingLatch;
     private CountDownLatch overpumpingLatch;
     private CountDownLatch lauteringLatch;
+    private CountDownLatch heatingLatch;
+    private CountDownLatch timerLatch;
 
     private ScheduledExecutorService sensorDataScheduler;
     private ScheduledExecutorService repeatingMessageScheduler;
+    private ScheduledExecutorService timerScheduler;
     private final AtomicBoolean repeatingMessageActive = new AtomicBoolean(false);
     private final AtomicBoolean stopRecipe = new AtomicBoolean(false);
 
-    public void startBrewing(int recipeId) {
+    public void startBrewing(int recipeId) throws IOException {
         try {
+            stopRecipe.set(false);
             startSensorDataLogging();
-            while (true) {
+            while (!stopRecipe.get()) {
                 var brewResponseDto = brewService.nextBrewingStep(recipeId);
-                if (brewResponseDto.getHeatingTemperature() != null && Boolean.FALSE.equals(brewResponseDto.getDoughingDtoList().isEmpty())) {
+                if (brewResponseDto.getHeatingTemperature() != null &&
+                        brewResponseDto.getDoughingDtoList() != null && !brewResponseDto.getDoughingDtoList().isEmpty()) {
                     int targetTemperature = brewResponseDto.getHeatingTemperature();
                     heatingToTargetTemperature(targetTemperature);
+                    if (stopRecipe.get()) break;
+
                     String doughingToMessage = fillStringOfDoughing(brewResponseDto.getDoughingDtoList());
                     sendRepeatingMessage(new BrewingMessage(MessageType.DOUGHING, "Nasypte: " + doughingToMessage, nextStepBuilder(brewResponseDto)));
                     log.debug("Doughing {}", doughingToMessage);
@@ -57,40 +64,49 @@ public class SekvenceService {
                 } else if (brewResponseDto.getActualStep() != null) {
                     int targetTemperature = brewResponseDto.getActualStep().getTemperature();
                     heatingToTargetTemperature(targetTemperature);
+                    if (stopRecipe.get()) break;
+
+                    hardwareControlService.turnOnHeater(targetTemperature);
 
                     int countDownTimeInSeconds = brewResponseDto.getActualStep().getDuration() * 60;
                     startCountdownTimer(countDownTimeInSeconds);
                 } else if (Boolean.TRUE.equals(brewResponseDto.getOverpumping())) {
                     sendRepeatingMessage(new BrewingMessage(MessageType.OVERPUMPING, "Prečerpajte: V hlavnej nádobe má byť " + brewResponseDto.getOverpumpingPercentage() + "%", nextStepBuilder(brewResponseDto)));
                     log.debug("Overpumping brewing step. In main kettle should be {}%", brewResponseDto.getOverpumpingPercentage());
+                    hardwareControlService.turnOffHeater();
                     waitForUserInteractionOnOverpumping();
                 } else if (Boolean.TRUE.equals(brewResponseDto.getLautering())) {
                     sendRepeatingMessage(new BrewingMessage(MessageType.LAUTERING, "Vyslaďte", nextStepBuilder(brewResponseDto)));
                     log.debug("Lautering");
+                    hardwareControlService.turnOffHeater();
                     waitForUserInteractionOnLautering();
                 } else if (Boolean.TRUE.equals(brewResponseDto.getCooling())) {
                     sendRepeatingMessage(new BrewingMessage(MessageType.COOLING, "Schlaďte na teplotu kvasenia", nextStepBuilder(brewResponseDto)));
                     log.debug("Cooling");
-                    waitForUserInteractionOnLautering();
+                    hardwareControlService.turnOffHeater();
                 } else if (stopRecipe.get()) {
                     break;
                 }
             }
         }
         finally {
-            stopSensorDataLogging();
-            log.debug("Stopping sensor data logging");
-
-            brewSessionRepository.findBrewSessionByStatus(BrewingStatus.IN_PROGRESS)
-                    .stream()
-                    .findFirst()
-                    .ifPresent(brewSession -> {
-                        brewSession.setStatus(BrewingStatus.COMPLETED);
-                        brewSession.setEndTime(LocalDateTime.now());
-                        brewSessionRepository.save(brewSession);
-                    });
-            log.debug("Brewing completed.");
+            cleanupResources();
         }
+    }
+
+    private void cleanupResources() {
+        stopSensorDataLogging();
+        log.debug("Stopping sensor data logging");
+
+        brewSessionRepository.findBrewSessionByStatus(BrewingStatus.IN_PROGRESS)
+                .stream()
+                .findFirst()
+                .ifPresent(brewSession -> {
+                    brewSession.setStatus(BrewingStatus.COMPLETED);
+                    brewSession.setEndTime(LocalDateTime.now());
+                    brewSessionRepository.save(brewSession);
+                });
+        log.debug("Brewing completed.");
     }
 
     private String nextStepBuilder(BrewResponseDto brewResponseDto) {
@@ -134,16 +150,16 @@ public class SekvenceService {
 
     private BrewLog createBrewLog(SensorsResponseDto sensorsResponseDto) {
         var brewLog = new BrewLog();
-        brewLog.setWorthWeight(sensorsResponseDto.getWorthWeight());
         brewLog.setMashWeight(sensorsResponseDto.getMashWeight());
         brewLog.setMashTemperature(sensorsResponseDto.getMashTemperature());
         brewLog.setWorthTemperature(sensorsResponseDto.getWorthTemperature());
         brewLog.setTimestamp(LocalDateTime.now());
+        brewLog.setPower(sensorsResponseDto.getPower());
         return brewLog;
     }
 
     private void stopSensorDataLogging() {
-        if (sensorDataScheduler != null) {
+        if (sensorDataScheduler != null && !sensorDataScheduler.isShutdown()) {
             sensorDataScheduler.shutdown();
             try {
                 if (!sensorDataScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
@@ -158,24 +174,43 @@ public class SekvenceService {
 
     private void startCountdownTimer(int countdownSeconds) {
         AtomicInteger remainingSeconds = new AtomicInteger(countdownSeconds);
-        CountDownLatch timerLatch = new CountDownLatch(countdownSeconds);
+        timerLatch = new CountDownLatch(1);
 
-        try (ScheduledExecutorService timerScheduler = Executors.newScheduledThreadPool(1)) {
-            timerScheduler.scheduleAtFixedRate(() -> {
-                int seconds = remainingSeconds.decrementAndGet();
-                if (seconds >= 0) {
-                    messagingTemplate.convertAndSend("/topic/brewing", new BrewingMessage(MessageType.TIMER, formatTime(seconds), ""));
+        timerScheduler = Executors.newScheduledThreadPool(1);
+        timerScheduler.scheduleAtFixedRate(() -> {
+            int seconds = remainingSeconds.decrementAndGet();
+            if (seconds >= 0 && !stopRecipe.get()) {
+                messagingTemplate.convertAndSend("/topic/brewing", new BrewingMessage(MessageType.TIMER, formatTime(seconds), ""));
+
+                if (seconds == 0) {
                     timerLatch.countDown();
-                } else {
-                    timerScheduler.shutdown();
+                    stopTimerScheduler();
                 }
-            }, 0, 1, TimeUnit.SECONDS);
+            } else if (stopRecipe.get() || seconds < 0) {
+                timerLatch.countDown();
+                stopTimerScheduler();
+            }
+        }, 0, 1, TimeUnit.SECONDS);
 
+        try {
+            timerLatch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private void stopTimerScheduler() {
+        if (timerScheduler != null && !timerScheduler.isShutdown()) {
+            timerScheduler.shutdown();
             try {
-                timerLatch.await();
+                if (!timerScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                    timerScheduler.shutdownNow();
+                }
             } catch (InterruptedException e) {
+                timerScheduler.shutdownNow();
                 Thread.currentThread().interrupt();
             }
+            timerScheduler = null;
         }
     }
 
@@ -186,9 +221,11 @@ public class SekvenceService {
         return String.format("%d:%02d", minutes, seconds);
     }
 
-    private void heatingToTargetTemperature(int targetTemperature) {
+    private void heatingToTargetTemperature(int targetTemperature) throws IOException {
         sendRepeatingMessage(new BrewingMessage(MessageType.HEATING, "Zohrievam na teplotu " + targetTemperature + "°C", ""));
         log.debug("Heating to temperature: {}°C", targetTemperature);
+
+        hardwareControlService.turnOnHeater(targetTemperature);
         waitForTargetTemperature(targetTemperature);
     }
 
@@ -200,7 +237,7 @@ public class SekvenceService {
     }
 
     private void stopRepeatingMessage() {
-        if (repeatingMessageActive.compareAndSet(true, false) && repeatingMessageScheduler != null) {
+        if (repeatingMessageActive.compareAndSet(true, false) && repeatingMessageScheduler != null && !repeatingMessageScheduler.isShutdown()) {
             repeatingMessageScheduler.shutdown();
             try {
                 if (!repeatingMessageScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
@@ -214,30 +251,47 @@ public class SekvenceService {
         }
     }
 
-
     private void waitForTargetTemperature(int targetTemperature) {
-        CountDownLatch latch = new CountDownLatch(1);
+        heatingLatch = new CountDownLatch(1);
 
-        try (ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1)) {
-            scheduler.scheduleAtFixedRate(() -> {
-                try {
-                    var sensorsData = hardwareControlService.getSensorsData();
-                    var currentTemperature = sensorsData.getMashTemperature();
-                    if (currentTemperature >= targetTemperature) {
-                        latch.countDown();
-                        scheduler.shutdown();
-                        stopRepeatingMessage();
-                        log.debug("Temperature saving stopped.");
-                    }
-                } catch (IOException | InterruptedException e) {
-                    log.error("Error getting sensor data during saving.");
-                }
-            }, 0, 2, TimeUnit.SECONDS);
-
+        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+        scheduler.scheduleAtFixedRate(() -> {
             try {
-                latch.await();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                if (stopRecipe.get()) {
+                    heatingLatch.countDown();
+                    scheduler.shutdown();
+                    stopRepeatingMessage();
+                    return;
+                }
+
+                var sensorsData = hardwareControlService.getSensorsData();
+                var currentTemperature = sensorsData.getMashTemperature();
+                if (currentTemperature >= (targetTemperature - 0.5)) {
+                    heatingLatch.countDown();
+                    scheduler.shutdown();
+                    stopRepeatingMessage();
+                    log.debug("Temperature saving stopped.");
+                }
+            } catch (IOException | InterruptedException e) {
+                log.error("Error getting sensor data during saving.");
+            }
+        }, 0, 2, TimeUnit.SECONDS);
+
+        try {
+            heatingLatch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            if (!scheduler.isShutdown()) {
+                scheduler.shutdown();
+                try {
+                    if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                        scheduler.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    scheduler.shutdownNow();
+                    Thread.currentThread().interrupt();
+                }
             }
         }
     }
@@ -293,7 +347,38 @@ public class SekvenceService {
         }
     }
 
-    public void stop() {
+    public void stop() throws IOException {
+        log.debug("Stopping brewing process...");
         stopRecipe.set(true);
+        hardwareControlService.turnOffHeater();
+
+        if (doughingLatch != null) {
+            doughingLatch.countDown();
+        }
+        if (overpumpingLatch != null) {
+            overpumpingLatch.countDown();
+        }
+        if (lauteringLatch != null) {
+            lauteringLatch.countDown();
+        }
+        if (heatingLatch != null) {
+            heatingLatch.countDown();
+        }
+        if (timerLatch != null) {
+            timerLatch.countDown();
+        }
+
+        stopRepeatingMessage();
+        stopSensorDataLogging();
+        stopTimerScheduler();
+
+        messagingTemplate.convertAndSend("/topic/brewing",
+                new BrewingMessage(MessageType.STOP, "Varenie bolo zastavené", ""));
+
+        log.debug("Brewing process has been forcibly stopped.");
+
+        // Dôležité pridanie
+        cleanupResources();
     }
+
 }
