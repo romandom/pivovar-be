@@ -14,8 +14,8 @@ public class ArduinoConfig {
 
     @Bean
     public SerialPort serialPort() {
-        serialPort = SerialPort.getCommPort("COM4");
-        //serialPort = SerialPort.getCommPort("/dev/ttyUSB0");
+        //serialPort = SerialPort.getCommPort("COM4");
+        serialPort = SerialPort.getCommPort("/dev/ttyUSB0");
         serialPort.setComPortParameters(250000, 8, 1, 0);
         serialPort.setComPortTimeouts(SerialPort.TIMEOUT_WRITE_BLOCKING, 0, 0);
 
