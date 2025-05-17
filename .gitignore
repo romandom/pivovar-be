@@ -1,10 +1,32 @@
-HELP.md
+# Ignoruj celý priečinok target/
 target/
-!.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
 
-### STS ###
+# Výnimka: povoľ JAR súbory v priečinku target/
+!target/*.jar
+
+# Maven Wrapper JAR (neignorovať Maven Wrapper)
+!.mvn/wrapper/maven-wrapper.jar
+
+# Ignoruj build priečinky IntelliJ IDEA, NetBeans, a VS Code
+.idea
+*.iws
+*.iml
+*.ipr
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+
+# Povolenie build súborov v štruktúre zdrojového kódu
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Ignoruj VS Code konfiguračný priečinok
+.vscode/
+
+# Spring Tool Suite (STS) a Eclipse nastavenia
 .apt_generated
 .classpath
 .factorypath
@@ -13,21 +35,5 @@ target/
 .springBeans
 .sts4-cache
 
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### VS Code ###
-.vscode/
+# Pomocné súbory
+HELP.md

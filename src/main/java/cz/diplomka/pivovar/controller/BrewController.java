@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -26,19 +25,14 @@ public class BrewController {
         return ResponseEntity.ok(brewService.nextBrewingStep(recipeId));
     }
 
-    @PostMapping("/check/{recipeId}")
-    public ResponseEntity<Boolean> checkBrewing(@PathVariable("recipeId") int recipeId) {
-        return ResponseEntity.ok(brewService.checkBrewing(recipeId));
-    }
-
     @PostMapping("/start/{recipeId}")
-    public ResponseEntity<Void> startBrewing(@PathVariable("recipeId") int recipeId) throws IOException {
+    public ResponseEntity<Void> startBrewing(@PathVariable("recipeId") int recipeId) {
         sekvenceService.startBrewing(recipeId);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/stop")
-    public ResponseEntity<Void> stopBrewing() throws IOException {
+    public ResponseEntity<Void> stopBrewing() {
         sekvenceService.stop();
         return ResponseEntity.noContent().build();
     }
@@ -59,11 +53,6 @@ public class BrewController {
     public ResponseEntity<Void> lautering() {
         sekvenceService.lauteringDone();
         return ResponseEntity.noContent().build();
-    }
-
-    @PostMapping("/status/{recipeId}")
-    public ResponseEntity<Boolean> checkBrewingStatus(@PathVariable int recipeId) {
-        return ResponseEntity.ok(brewService.checkBrewing(recipeId));
     }
 
     @GetMapping("/graph/temperatures")

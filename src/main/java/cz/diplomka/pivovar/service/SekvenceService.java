@@ -44,11 +44,18 @@ public class SekvenceService {
     private ScheduledExecutorService timerScheduler;
     private final AtomicBoolean repeatingMessageActive = new AtomicBoolean(false);
     private final AtomicBoolean stopRecipe = new AtomicBoolean(false);
+    private final AtomicBoolean isProcessBrewing = new AtomicBoolean(false);
 
-    public void startBrewing(int recipeId) throws IOException {
+    public void startBrewing(int recipeId) {
         try {
+            brewService.checkBrewing(recipeId);
+            if (isProcessBrewing.get()) {
+                return;
+            }
+            isProcessBrewing.set(true);
             stopRecipe.set(false);
             startSensorDataLogging();
+
             while (!stopRecipe.get()) {
                 var brewResponseDto = brewService.nextBrewingStep(recipeId);
                 if (brewResponseDto.getHeatingTemperature() != null &&
@@ -56,7 +63,6 @@ public class SekvenceService {
                     int targetTemperature = brewResponseDto.getHeatingTemperature();
                     heatingToTargetTemperature(targetTemperature);
                     if (stopRecipe.get()) break;
-
                     String doughingToMessage = fillStringOfDoughing(brewResponseDto.getDoughingDtoList());
                     sendRepeatingMessage(new BrewingMessage(MessageType.DOUGHING, "Nasypte: " + doughingToMessage, nextStepBuilder(brewResponseDto)));
                     log.debug("Doughing {}", doughingToMessage);
@@ -66,16 +72,22 @@ public class SekvenceService {
                     heatingToTargetTemperature(targetTemperature);
                     if (stopRecipe.get()) break;
 
+                    if (brewResponseDto.getActualStep().getPercentage() < 100) {
+                        hardwareControlService.turnOnWorthMixing();
+                    }
+
                     hardwareControlService.turnOnHeater(targetTemperature);
 
                     int countDownTimeInSeconds = brewResponseDto.getActualStep().getDuration() * 60;
                     startCountdownTimer(countDownTimeInSeconds);
                 } else if (Boolean.TRUE.equals(brewResponseDto.getOverpumping())) {
+                    hardwareControlService.turnOffWorthMixing();
                     sendRepeatingMessage(new BrewingMessage(MessageType.OVERPUMPING, "Prečerpajte: V hlavnej nádobe má byť " + brewResponseDto.getOverpumpingPercentage() + "%", nextStepBuilder(brewResponseDto)));
                     log.debug("Overpumping brewing step. In main kettle should be {}%", brewResponseDto.getOverpumpingPercentage());
                     hardwareControlService.turnOffHeater();
                     waitForUserInteractionOnOverpumping();
                 } else if (Boolean.TRUE.equals(brewResponseDto.getLautering())) {
+                    hardwareControlService.turnOffMashMixing();
                     sendRepeatingMessage(new BrewingMessage(MessageType.LAUTERING, "Vyslaďte", nextStepBuilder(brewResponseDto)));
                     log.debug("Lautering");
                     hardwareControlService.turnOffHeater();
@@ -142,7 +154,7 @@ public class SekvenceService {
                             bs.getBrewLogs().add(createBrewLog(sensorsData));
                             brewSessionRepository.save(bs);
                         });
-            } catch (IOException | InterruptedException e) {
+            } catch (IOException e) {
                 log.error("Sensor data logging error. Cannot find brewing session.");
             }
         }, 0, 1, TimeUnit.MINUTES);
@@ -153,6 +165,7 @@ public class SekvenceService {
         brewLog.setMashWeight(sensorsResponseDto.getMashWeight());
         brewLog.setMashTemperature(sensorsResponseDto.getMashTemperature());
         brewLog.setWorthTemperature(sensorsResponseDto.getWorthTemperature());
+        brewLog.setWorthHeight((int) Math.round(sensorsResponseDto.getWorthHeight()));
         brewLog.setTimestamp(LocalDateTime.now());
         brewLog.setPower(sensorsResponseDto.getPower());
         return brewLog;
@@ -221,11 +234,12 @@ public class SekvenceService {
         return String.format("%d:%02d", minutes, seconds);
     }
 
-    private void heatingToTargetTemperature(int targetTemperature) throws IOException {
+    private void heatingToTargetTemperature(int targetTemperature) {
         sendRepeatingMessage(new BrewingMessage(MessageType.HEATING, "Zohrievam na teplotu " + targetTemperature + "°C", ""));
         log.debug("Heating to temperature: {}°C", targetTemperature);
 
         hardwareControlService.turnOnHeater(targetTemperature);
+        hardwareControlService.turnOnMashMixing();
         waitForTargetTemperature(targetTemperature);
     }
 
@@ -272,7 +286,7 @@ public class SekvenceService {
                     stopRepeatingMessage();
                     log.debug("Temperature saving stopped.");
                 }
-            } catch (IOException | InterruptedException e) {
+            } catch (IOException e) {
                 log.error("Error getting sensor data during saving.");
             }
         }, 0, 2, TimeUnit.SECONDS);
@@ -347,10 +361,13 @@ public class SekvenceService {
         }
     }
 
-    public void stop() throws IOException {
+    public void stop() {
         log.debug("Stopping brewing process...");
         stopRecipe.set(true);
+        isProcessBrewing.set(false);
         hardwareControlService.turnOffHeater();
+        hardwareControlService.turnOffWorthMixing();
+        hardwareControlService.turnOffMashMixing();
 
         if (doughingLatch != null) {
             doughingLatch.countDown();

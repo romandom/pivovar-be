@@ -1,13 +1,14 @@
 package cz.diplomka.pivovar.arduino;
 
 import com.fazecast.jSerialComm.SerialPort;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 @RequiredArgsConstructor
@@ -15,41 +16,42 @@ import java.io.InputStreamReader;
 public class ArduinoService {
 
     private final SerialPort serialPort;
+    private final AtomicReference<String> lastValidMessage = new AtomicReference<>();
 
-    public void sendCommand(String command) throws IOException {
-        if (serialPort == null || !serialPort.isOpen()) {
-            throw new IllegalStateException("Serial port is not open");
-        }
-
-        serialPort.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING,5000,0);
-        serialPort.getOutputStream().write((command.trim() + "\n").getBytes());
-        serialPort.getOutputStream().flush();
-        //return null;
+    @PostConstruct
+    public void startSerialReader() {
+        Thread readerThread = new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(serialPort.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    line = line.trim();
+                    if (line.startsWith("{") && line.endsWith("}")) {
+                        lastValidMessage.set(line); // nastaví novú správu
+                        log.debug("Prijatý JSON: {}", line);
+                    } else {
+                        log.debug("Invalid JSON format, ignoring: {}", line);
+                        // nič nemeníme
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Chyba pri čítaní zo sériového portu", e);
+            }
+        });
+        readerThread.setDaemon(true);
+        readerThread.start();
     }
 
-    public String readSerialData() throws IOException {
-        if (serialPort == null || !serialPort.isOpen()) {
-            throw new IllegalStateException("Serial port is not open");
+    public void sendCommand(String command) {
+        try {
+            serialPort.getOutputStream().write((command.trim() + "\n").getBytes());
+            serialPort.getOutputStream().flush();
+            log.info("Odoslaný príkaz: {}", command);
+        } catch (Exception e) {
+            log.error("Chyba pri odosielaní príkazu na Arduino", e);
         }
-        var reader = new BufferedReader(new InputStreamReader(serialPort.getInputStream()));
+    }
 
-        String json;
-        while (true) {
-            json = reader.readLine();
-
-            if (json == null || json.trim().isEmpty()) {
-                log.debug("Empty line received, waiting for valid JSON...");
-                continue;
-            }
-
-            json = json.trim();
-
-            if (json.startsWith("{") && json.endsWith("}")) {
-                return json;
-            } else {
-                log.debug("Invalid JSON format, ignoring: {}", json);
-            }
-        }
+    public String getLastValidMessage() {
+        return lastValidMessage.get();
     }
 }
-

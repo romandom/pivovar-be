@@ -2,7 +2,6 @@ package cz.diplomka.pivovar.websocket;
 
 import cz.diplomka.pivovar.arduino.HardwareControlService;
 import cz.diplomka.pivovar.dto.SensorsResponseDto;
-import cz.diplomka.pivovar.service.BrewService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
@@ -19,7 +18,7 @@ public class WebSocketController {
     private final Map<String, String> activeUsers = new ConcurrentHashMap<>();
 
     @Autowired
-    public WebSocketController(HardwareControlService hardwareControlService, SimpMessagingTemplate messagingTemplate, BrewService brewService) {
+    public WebSocketController(HardwareControlService hardwareControlService, SimpMessagingTemplate messagingTemplate) {
         this.hardwareControlService = hardwareControlService;
         this.messagingTemplate = messagingTemplate;
     }
@@ -32,7 +31,7 @@ public class WebSocketController {
         activeUsers.remove(sessionId);
     }
 
-    @Scheduled(fixedRate = 2000)
+    @Scheduled(fixedRate = 5000)
     public void sendTemperatureUpdates() {
         if (!activeUsers.isEmpty()) {
             try {

@@ -6,6 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
 @Slf4j
 @Configuration
 public class ArduinoConfig {
@@ -16,8 +19,8 @@ public class ArduinoConfig {
     public SerialPort serialPort() {
         //serialPort = SerialPort.getCommPort("COM4");
         serialPort = SerialPort.getCommPort("/dev/ttyACM0");
-        serialPort.setComPortParameters(9600, 8, 1, 0);
-        serialPort.setComPortTimeouts(SerialPort.TIMEOUT_WRITE_BLOCKING, 0, 0);
+        serialPort.setComPortParameters(115200, 8, 1, 0);
+        serialPort.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 0, 0);
 
         if (serialPort.openPort()) {
             log.debug("Succesfully opened serial port.");
@@ -26,6 +29,11 @@ public class ArduinoConfig {
         }
 
         return serialPort;
+    }
+
+    @Bean
+    public BlockingQueue<String> serialQueue() {
+        return new LinkedBlockingQueue<>();
     }
 
     @PreDestroy

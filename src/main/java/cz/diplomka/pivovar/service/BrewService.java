@@ -241,7 +241,7 @@ public class BrewService {
                 .orElse(null);
     }
 
-    public Boolean checkBrewing(int recipeId) {
+    public void checkBrewing(int recipeId) {
         final Recipe recipe = recipeRepository.findById(recipeId).orElseThrow();
         final BrewSession brewSession = recipe.getBrewSessions()
                 .stream()
@@ -249,17 +249,21 @@ public class BrewService {
                 .findFirst()
                 .orElse(null);
 
+//        if (brewSession == null) {
+//            return false;
+//        }
+
         if (brewSession == null) {
-            return false;
+            return;
         }
 
         if (isOlderThanTwelveHours(brewSession)) {
             brewSession.setEndTime(LocalDateTime.now());
             brewSession.setStatus(BrewingStatus.CANCELLED);
             brewSessionRepository.save(brewSession);
-            return false;
+            //return false;
         }
-        return true;
+        //return false;
     }
 
     private boolean isOlderThanTwelveHours(BrewSession brewSession) {
@@ -268,7 +272,13 @@ public class BrewService {
     }
 
     public List<TemperatureGraphDto> getTemperaturesToGraph() {
-        var brewSession = brewSessionRepository.findBrewSessionByStatus(BrewingStatus.IN_PROGRESS).getFirst();
+        var brewSessions = brewSessionRepository.findBrewSessionByStatus(BrewingStatus.IN_PROGRESS);
+
+        if (brewSessions.isEmpty()) {
+            return List.of();
+        }
+
+        var brewSession = brewSessions.getFirst();
 
         return brewSession.getBrewLogs()
                 .stream()
@@ -280,7 +290,13 @@ public class BrewService {
     }
 
     public List<WeightGraphDto> getWeightsToGraph() {
-        var brewSession = brewSessionRepository.findBrewSessionByStatus(BrewingStatus.IN_PROGRESS).getFirst();
+        var brewSessions = brewSessionRepository.findBrewSessionByStatus(BrewingStatus.IN_PROGRESS);
+
+        if (brewSessions.isEmpty()) {
+            return List.of();
+        }
+
+        var brewSession = brewSessions.getFirst();
 
         return brewSession.getBrewLogs()
                 .stream()
@@ -292,7 +308,13 @@ public class BrewService {
     }
 
     public List<PowerGraphDto> getPowerToGraph() {
-        var brewSession = brewSessionRepository.findBrewSessionByStatus(BrewingStatus.IN_PROGRESS).getFirst();
+        var brewSessions = brewSessionRepository.findBrewSessionByStatus(BrewingStatus.IN_PROGRESS);
+
+        if (brewSessions.isEmpty()) {
+            return List.of();
+        }
+
+        var brewSession = brewSessions.getFirst();
 
         return brewSession.getBrewLogs()
                 .stream()
